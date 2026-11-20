@@ -30,6 +30,7 @@ const schema = z.object({
   ADMIN_EMAIL: z.string().min(1).default("admin@fixmate.dev"),
   ADMIN_NAME: z.string().min(1).default("FixMate Admin"),
   ADMIN_PASSWORD: optionalString,
+  SEED_PASSWORD: z.string().min(8).default("FixMateDemo123!"),
 });
 
 const parsed = schema.safeParse(process.env);
