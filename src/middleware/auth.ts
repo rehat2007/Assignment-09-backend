@@ -1,6 +1,7 @@
-import type { NextFunction, Request, RequestHandler, Response } from "express";
+import type { NextFunction, Request, RequestHandler } from "express";
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "../auth.js";
+import { ApiError } from "../http/api-error.js";
 import { getAppRole, type AppRole } from "../roles.js";
 
 export type AuthSession = typeof auth.$Infer.Session;
@@ -14,21 +15,9 @@ declare global {
   }
 }
 
-function unauthenticated(response: Response) {
-  response.status(401).json({
-    error: { code: "UNAUTHENTICATED", message: "Sign in required." },
-  });
-}
-
-function forbidden(response: Response) {
-  response.status(403).json({
-    error: { code: "FORBIDDEN", message: "You do not have access." },
-  });
-}
-
 export async function requireUser(
   request: Request,
-  response: Response,
+  _response: unknown,
   next: NextFunction,
 ) {
   try {
@@ -37,7 +26,7 @@ export async function requireUser(
     });
 
     if (!session) {
-      unauthenticated(response);
+      next(ApiError.unauthenticated());
       return;
     }
 
@@ -52,9 +41,9 @@ export async function requireUser(
 export function requireRole(roles: AppRole[]): RequestHandler[] {
   return [
     requireUser,
-    (request: Request, response: Response, next: NextFunction) => {
+    (request: Request, _response: unknown, next: NextFunction) => {
       if (!request.appRole || !roles.includes(request.appRole)) {
-        forbidden(response);
+        next(ApiError.forbidden());
         return;
       }
 

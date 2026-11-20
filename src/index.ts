@@ -1,15 +1,23 @@
-import express, { type NextFunction, type Request, type Response } from "express";
+import express, { type Request, type Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./auth.js";
 import { env, trustedOrigins } from "./config/env.js";
 import { mongoClient, mongoDb } from "./db/mongo.js";
+import { fail, ok } from "./http/response.js";
+import { HTTP_STATUS } from "./http/status.js";
+import { logger } from "./lib/logger.js";
+import { errorHandler, notFoundHandler } from "./middleware/errors.js";
+import { requestContext } from "./middleware/request-context.js";
+import { meRouter } from "./routes/me.js";
 import { uploadsRouter, avatarDirectory } from "./routes/uploads.js";
 
 const app = express();
 
 app.disable("x-powered-by");
+
+app.use(requestContext);
 
 app.use(
   helmet({
@@ -31,7 +39,8 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
+    exposedHeaders: ["X-Request-Id"],
     maxAge: 86_400,
   }),
 );
@@ -46,25 +55,31 @@ app.all("/api/auth/*splat", toNodeHandler(auth));
 
 app.use(express.json({ limit: "1mb" }));
 
-app.get("/api/v1/health", async (_request: Request, response: Response) => {
+app.get("/api/v1/health", async (request: Request, response: Response) => {
   try {
     await mongoDb.command({ ping: 1 });
 
-    response.status(200).json({
-      ok: true,
-      service: "fixmate-api",
-      database: "up",
-      timestamp: new Date().toISOString(),
+    response.status(HTTP_STATUS.OK).json(
+      ok({
+        ok: true,
+        service: "fixmate-api",
+        database: "up",
+        timestamp: new Date().toISOString(),
+      }),
+    );
+  } catch (error) {
+    logger.warn("health_check_failed", {
+      requestId: request.id,
+      error: error instanceof Error ? error.message : String(error),
     });
-  } catch {
-    response.status(503).json({
-      ok: false,
-      service: "fixmate-api",
-      database: "down",
-      timestamp: new Date().toISOString(),
-    });
+
+    response
+      .status(HTTP_STATUS.SERVICE_UNAVAILABLE)
+      .json(fail("DATABASE_UNAVAILABLE", "MongoDB is not reachable."));
   }
 });
+
+app.use("/api/v1/me", meRouter);
 
 app.use(
   "/api/v1/uploads/avatars",
@@ -78,42 +93,15 @@ app.use(
 
 app.use("/api/v1/uploads", uploadsRouter);
 
-app.use((_request: Request, response: Response) => {
-  response.status(404).json({
-    error: { code: "NOT_FOUND", message: "Route not found." },
-  });
-});
-
-app.use(
-  (
-    error: unknown,
-    _request: Request,
-    response: Response,
-    _next: NextFunction,
-  ) => {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "type" in error &&
-      (error as { type?: unknown }).type === "entity.parse.failed"
-    ) {
-      response.status(400).json({
-        error: { code: "MALFORMED_JSON", message: "Request body is not valid JSON." },
-      });
-      return;
-    }
-
-    console.error("[api] unhandled error", error);
-
-    response.status(500).json({
-      error: { code: "INTERNAL_ERROR", message: "Something went wrong." },
-    });
-  },
-);
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 const server = app.listen(env.PORT, () => {
-  console.log(`[api] listening on ${env.BETTER_AUTH_URL}`);
-  console.log(`[api] frontend origin ${env.FRONTEND_URL}`);
+  logger.info("server_started", {
+    port: env.PORT,
+    url: env.BETTER_AUTH_URL,
+    frontendUrl: env.FRONTEND_URL,
+  });
 });
 
 let shuttingDown = false;
@@ -121,7 +109,7 @@ let shuttingDown = false;
 async function shutdown(signal: string) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`[api] ${signal} received, shutting down`);
+  logger.info("server_stopping", { signal });
 
   server.close(async () => {
     await mongoClient.close().catch(() => undefined);

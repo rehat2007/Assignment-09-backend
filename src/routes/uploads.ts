@@ -4,6 +4,9 @@ import { join } from "node:path";
 import { Router, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
 import { env } from "../config/env.js";
+import { ApiError } from "../http/api-error.js";
+import { ok } from "../http/response.js";
+import { HTTP_STATUS } from "../http/status.js";
 import { requireUser } from "../middleware/auth.js";
 
 const TYPES: Record<string, string> = {
@@ -21,7 +24,7 @@ const upload = multer({
   limits: { fileSize: MAX_BYTES, files: 1 },
   fileFilter: (_request, file, callback) => {
     if (!TYPES[file.mimetype]) {
-      callback(new Error("Use a JPG, PNG or WEBP image"));
+      callback(new Error("Use a JPG, PNG or WEBP image."));
       return;
     }
 
@@ -42,17 +45,29 @@ function singleAvatar(
 
     if (error instanceof multer.MulterError) {
       if (error.code === "LIMIT_FILE_SIZE") {
-        response.status(413).json({ error: "Image must be under 2 MB" });
+        next(
+          new ApiError(
+            HTTP_STATUS.PAYLOAD_TOO_LARGE,
+            "FILE_TOO_LARGE",
+            "Image must be under 2 MB.",
+          ),
+        );
         return;
       }
 
-      response.status(400).json({ error: error.message });
+      next(
+        new ApiError(HTTP_STATUS.BAD_REQUEST, "UPLOAD_ERROR", error.message),
+      );
       return;
     }
 
-    response.status(415).json({
-      error: error instanceof Error ? error.message : "Upload failed",
-    });
+    next(
+      new ApiError(
+        HTTP_STATUS.UNSUPPORTED_MEDIA_TYPE,
+        "UNSUPPORTED_MEDIA_TYPE",
+        error instanceof Error ? error.message : "Upload failed.",
+      ),
+    );
   });
 }
 
@@ -67,14 +82,20 @@ uploadsRouter.post(
       const file = request.file;
 
       if (!file) {
-        response.status(400).json({ error: "No image provided" });
+        next(new ApiError(HTTP_STATUS.BAD_REQUEST, "NO_FILE", "No image provided."));
         return;
       }
 
       const extension = TYPES[file.mimetype];
 
       if (!extension) {
-        response.status(415).json({ error: "Use a JPG, PNG or WEBP image" });
+        next(
+          new ApiError(
+            HTTP_STATUS.UNSUPPORTED_MEDIA_TYPE,
+            "UNSUPPORTED_MEDIA_TYPE",
+            "Use a JPG, PNG or WEBP image.",
+          ),
+        );
         return;
       }
 
@@ -85,9 +106,11 @@ uploadsRouter.post(
 
       const baseUrl = env.BETTER_AUTH_URL.replace(/\/+$/, "");
 
-      response.status(201).json({
-        url: `${baseUrl}/api/v1/uploads/avatars/${filename}`,
-      });
+      response.status(HTTP_STATUS.CREATED).json(
+        ok({
+          url: `${baseUrl}/api/v1/uploads/avatars/${filename}`,
+        }),
+      );
     } catch (error) {
       next(error);
     }
