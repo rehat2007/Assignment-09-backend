@@ -1,17 +1,9 @@
 import { z } from "zod";
 import { PAGE_SIZES } from "../http/response.js";
-
-export const SERVICE_CATEGORIES = [
-  "Smartphone",
-  "Laptop & PC",
-  "AC",
-  "Refrigerator",
-  "TV",
-  "Washing Machine",
-  "Electrical",
-] as const;
-
-export const SERVICE_MODES = ["Home Visit", "Shop Drop-off"] as const;
+import {
+  SERVICE_CATEGORIES,
+  SERVICE_MODES,
+} from "../types/models.js";
 
 export const APP_ROLES = ["customer", "technician", "admin"] as const;
 export const ACCOUNT_TYPES = ["customer", "technician"] as const;

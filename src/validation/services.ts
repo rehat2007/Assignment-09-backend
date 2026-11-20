@@ -30,6 +30,9 @@ export const serviceSlugParamsSchema = z.object({
   slug: slugSchema,
 });
 
+export type ServiceListQuery = z.infer<typeof serviceListQuerySchema>;
+export type ServiceSlugParams = z.infer<typeof serviceSlugParamsSchema>;
+
 const serviceFields = {
   title: z.string().trim().min(3).max(120),
   category: serviceCategorySchema,

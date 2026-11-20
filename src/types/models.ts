@@ -1,13 +1,18 @@
-export type ServiceCategory =
-  | "Smartphone"
-  | "Laptop & PC"
-  | "AC"
-  | "Refrigerator"
-  | "TV"
-  | "Washing Machine"
-  | "Electrical";
+export const SERVICE_CATEGORIES = [
+  "Smartphone",
+  "Laptop & PC",
+  "AC",
+  "Refrigerator",
+  "TV",
+  "Washing Machine",
+  "Electrical",
+] as const;
 
-export type ServiceMode = "Home Visit" | "Shop Drop-off";
+export type ServiceCategory = (typeof SERVICE_CATEGORIES)[number];
+
+export const SERVICE_MODES = ["Home Visit", "Shop Drop-off"] as const;
+
+export type ServiceMode = (typeof SERVICE_MODES)[number];
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 

@@ -11,6 +11,8 @@ export const reviewListQuerySchema = z.object({
   ...paginationFields(PAGE_SIZES.public),
 });
 
+export type ReviewListQuery = z.infer<typeof reviewListQuerySchema>;
+
 export const meReviewsQuerySchema = z.object({
   ...paginationFields(PAGE_SIZES.dashboard),
 });
