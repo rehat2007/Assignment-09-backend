@@ -15,6 +15,7 @@ import { bookingsRouter } from "./routes/bookings.js";
 import { customerRouter } from "./routes/customer.js";
 import { meRouter } from "./routes/me.js";
 import { paymentsRouter } from "./routes/payments.js";
+import { technicianRouter } from "./routes/technician.js";
 import { uploadsRouter, avatarDirectory } from "./routes/uploads.js";
 
 const app = express();
@@ -88,6 +89,7 @@ app.use("/api/v1", catalogRouter);
 app.use("/api/v1/bookings", bookingsRouter);
 app.use("/api/v1/customer", customerRouter);
 app.use("/api/v1/payments", paymentsRouter);
+app.use("/api/v1/technician", technicianRouter);
 
 app.use(
   "/api/v1/uploads/avatars",
