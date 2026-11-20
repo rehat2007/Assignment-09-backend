@@ -1,5 +1,6 @@
 import type { Collection } from "mongodb";
 import type {
+  AuditLogDocument,
   BookingDocument,
   PaymentDocument,
   ReviewDocument,
@@ -22,3 +23,6 @@ export const reviews: Collection<ReviewDocument> =
 
 export const technicianProfiles: Collection<TechnicianProfileDocument> =
   mongoDb.collection<TechnicianProfileDocument>("technicianProfiles");
+
+export const auditLogs: Collection<AuditLogDocument> =
+  mongoDb.collection<AuditLogDocument>("auditLogs");

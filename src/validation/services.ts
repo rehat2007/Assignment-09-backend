@@ -96,3 +96,7 @@ export type TechnicianServiceListQuery = z.infer<
 >;
 export type CreateServiceInput = z.infer<typeof createServiceSchema>;
 export type UpdateServiceInput = z.infer<typeof updateServiceSchema>;
+export type AdminServiceListQuery = z.infer<
+  typeof adminServiceListQuerySchema
+>;
+export type RejectServiceInput = z.infer<typeof rejectServiceSchema>;

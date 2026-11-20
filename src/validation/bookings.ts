@@ -51,3 +51,6 @@ export type BookingListQuery = z.infer<typeof bookingListQuerySchema>;
 export type BookingIdParams = z.infer<typeof bookingIdParamsSchema>;
 export type RejectBookingInput = z.infer<typeof rejectBookingSchema>;
 export type CompleteBookingInput = z.infer<typeof completeBookingSchema>;
+export type AdminBookingListQuery = z.infer<
+  typeof adminBookingListQuerySchema
+>;

@@ -135,3 +135,14 @@ export type TechnicianProfileDocument = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+export type AuditLogDocument = {
+  _id: string;
+  action: string;
+  actorId: string;
+  actorEmail: string;
+  targetType: "user" | "service" | "booking" | "payment";
+  targetId: string;
+  metadata: Record<string, unknown>;
+  createdAt: Date;
+};

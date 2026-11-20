@@ -27,3 +27,8 @@ export const roleChangeSchema = z.object({
 export const suspendUserSchema = z.object({
   reason: z.string().trim().max(500).optional(),
 });
+
+export type AdminUsersQuery = z.infer<typeof adminUsersQuerySchema>;
+export type UserIdParams = z.infer<typeof userIdParamsSchema>;
+export type RoleChangeInput = z.infer<typeof roleChangeSchema>;
+export type SuspendUserInput = z.infer<typeof suspendUserSchema>;

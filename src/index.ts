@@ -11,6 +11,7 @@ import { logger } from "./lib/logger.js";
 import { errorHandler, notFoundHandler } from "./middleware/errors.js";
 import { requestContext } from "./middleware/request-context.js";
 import { catalogRouter } from "./routes/catalog.js";
+import { adminRouter } from "./routes/admin.js";
 import { bookingsRouter } from "./routes/bookings.js";
 import { customerRouter } from "./routes/customer.js";
 import { meRouter } from "./routes/me.js";
@@ -90,6 +91,7 @@ app.use("/api/v1/bookings", bookingsRouter);
 app.use("/api/v1/customer", customerRouter);
 app.use("/api/v1/payments", paymentsRouter);
 app.use("/api/v1/technician", technicianRouter);
+app.use("/api/v1/admin", adminRouter);
 
 app.use(
   "/api/v1/uploads/avatars",

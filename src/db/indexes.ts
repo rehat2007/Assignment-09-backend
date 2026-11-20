@@ -1,4 +1,5 @@
 import {
+  auditLogs,
   bookings,
   payments,
   reviews,
@@ -50,6 +51,11 @@ export async function ensureIndexes() {
     ]),
     technicianProfiles.createIndexes([
       { key: { userId: 1 }, unique: true, name: "user_unique" },
+    ]),
+    auditLogs.createIndexes([
+      { key: { createdAt: -1 }, name: "created_at" },
+      { key: { actorId: 1, createdAt: -1 }, name: "actor_created" },
+      { key: { targetType: 1, targetId: 1, createdAt: -1 }, name: "target_created" },
     ]),
   ]);
 }
