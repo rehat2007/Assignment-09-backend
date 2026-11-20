@@ -36,6 +36,11 @@ async function main() {
     }
 
     console.log(`${email} is now an admin.`);
+
+    // Better Auth schedules its unique-index creation in the background after
+    // the first DB write. Give it a moment so closing the client does not abort
+    // index creation with MongoTopologyClosedError.
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
   } finally {
     await mongoClient.close();
   }
