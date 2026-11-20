@@ -10,6 +10,7 @@ import { HTTP_STATUS } from "./http/status.js";
 import { logger } from "./lib/logger.js";
 import { errorHandler, notFoundHandler } from "./middleware/errors.js";
 import { requestContext } from "./middleware/request-context.js";
+import { catalogRouter } from "./routes/catalog.js";
 import { meRouter } from "./routes/me.js";
 import { uploadsRouter, avatarDirectory } from "./routes/uploads.js";
 
@@ -80,6 +81,7 @@ app.get("/api/v1/health", async (request: Request, response: Response) => {
 });
 
 app.use("/api/v1/me", meRouter);
+app.use("/api/v1", catalogRouter);
 
 app.use(
   "/api/v1/uploads/avatars",
