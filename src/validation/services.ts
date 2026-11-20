@@ -30,8 +30,13 @@ export const serviceSlugParamsSchema = z.object({
   slug: slugSchema,
 });
 
+export const serviceIdParamsSchema = z.object({
+  id: idSchema,
+});
+
 export type ServiceListQuery = z.infer<typeof serviceListQuerySchema>;
 export type ServiceSlugParams = z.infer<typeof serviceSlugParamsSchema>;
+export type ServiceIdParams = z.infer<typeof serviceIdParamsSchema>;
 
 const serviceFields = {
   title: z.string().trim().min(3).max(120),
@@ -50,6 +55,10 @@ const serviceFields = {
 export const createServiceSchema = z.object({
   ...serviceFields,
   includes: serviceFields.includes.default([]),
+  warranty: serviceFields.warranty.default("30 days on workmanship"),
+  availabilityNote: serviceFields.availabilityNote.default(
+    "Contact for availability",
+  ),
 });
 
 export const updateServiceSchema = z
@@ -74,3 +83,15 @@ export const adminServiceListQuerySchema = z.object({
   available: emptyToUndefined(booleanQuerySchema.optional()),
   ...paginationFields(PAGE_SIZES.dashboard),
 });
+
+export const technicianServiceListQuerySchema = z.object({
+  approval: emptyToUndefined(approvalStatusSchema.optional()),
+  available: emptyToUndefined(booleanQuerySchema.optional()),
+  ...paginationFields(PAGE_SIZES.dashboard),
+});
+
+export type TechnicianServiceListQuery = z.infer<
+  typeof technicianServiceListQuerySchema
+>;
+export type CreateServiceInput = z.infer<typeof createServiceSchema>;
+export type UpdateServiceInput = z.infer<typeof updateServiceSchema>;

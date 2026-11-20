@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { bookings, payments, services } from "../db/collections.js";
 import { mongoDb } from "../db/mongo.js";
 import { ApiError } from "../http/api-error.js";
+import { buildSpendSeries } from "../lib/spend-series.js";
 import type {
   BookingDocument,
   BookingStatus,
@@ -361,34 +362,6 @@ export async function cancelBooking(
   }
 
   throw ApiError.conflict("This booking can no longer be cancelled.");
-}
-
-function buildSpendSeries(paymentRows: Array<{ paidAt: Date; amount: number }>) {
-  const now = new Date();
-  const months = Array.from({ length: 6 }, (_, index) => {
-    const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
-
-    return {
-      label: date.toLocaleString("en-US", { month: "short" }),
-      year: date.getFullYear(),
-      month: date.getMonth(),
-      value: 0,
-    };
-  });
-
-  for (const payment of paymentRows) {
-    const entry = months.find(
-      (month) =>
-        month.year === payment.paidAt.getFullYear() &&
-        month.month === payment.paidAt.getMonth(),
-    );
-
-    if (entry) {
-      entry.value += payment.amount;
-    }
-  }
-
-  return months.map(({ label, value }) => ({ label, value }));
 }
 
 export async function getCustomerOverview(
