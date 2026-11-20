@@ -1,3 +1,9 @@
+// Seed fixture mirrored from:
+//   fix_mate_front_end/src/lib/services.ts
+//   fix_mate_front_end/src/lib/service-details.ts
+//   fix_mate_front_end/src/lib/admin-data.ts
+// MongoDB becomes the source of truth after seeding; update this fixture only
+// if the demo data must be re-seeded.
 import type { ServiceCategory, ServiceMode } from "../src/types/models.js";
 
 export type SeedReview = {
