@@ -1,4 +1,4 @@
-import type { NextFunction, Request, RequestHandler } from "express";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "../auth.js";
 import { ApiError } from "../http/api-error.js";
@@ -17,7 +17,7 @@ declare global {
 
 export async function requireUser(
   request: Request,
-  _response: unknown,
+  _response: Response,
   next: NextFunction,
 ) {
   try {
@@ -41,7 +41,7 @@ export async function requireUser(
 export function requireRole(roles: AppRole[]): RequestHandler[] {
   return [
     requireUser,
-    (request: Request, _response: unknown, next: NextFunction) => {
+    (request: Request, _response: Response, next: NextFunction) => {
       if (!request.appRole || !roles.includes(request.appRole)) {
         next(ApiError.forbidden());
         return;
