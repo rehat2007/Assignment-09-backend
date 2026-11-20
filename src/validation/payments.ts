@@ -13,3 +13,6 @@ export const paymentIdParamsSchema = z.object({
 export const refundPaymentSchema = z.object({
   reason: z.string().trim().max(500).optional(),
 });
+
+export type PaymentListQuery = z.infer<typeof paymentListQuerySchema>;
+export type PaymentIdParams = z.infer<typeof paymentIdParamsSchema>;

@@ -11,7 +11,10 @@ import { logger } from "./lib/logger.js";
 import { errorHandler, notFoundHandler } from "./middleware/errors.js";
 import { requestContext } from "./middleware/request-context.js";
 import { catalogRouter } from "./routes/catalog.js";
+import { bookingsRouter } from "./routes/bookings.js";
+import { customerRouter } from "./routes/customer.js";
 import { meRouter } from "./routes/me.js";
+import { paymentsRouter } from "./routes/payments.js";
 import { uploadsRouter, avatarDirectory } from "./routes/uploads.js";
 
 const app = express();
@@ -82,6 +85,9 @@ app.get("/api/v1/health", async (request: Request, response: Response) => {
 
 app.use("/api/v1/me", meRouter);
 app.use("/api/v1", catalogRouter);
+app.use("/api/v1/bookings", bookingsRouter);
+app.use("/api/v1/customer", customerRouter);
+app.use("/api/v1/payments", paymentsRouter);
 
 app.use(
   "/api/v1/uploads/avatars",

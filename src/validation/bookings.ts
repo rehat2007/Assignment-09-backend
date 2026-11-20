@@ -45,3 +45,7 @@ export const completeBookingSchema = z.object({
 export const rejectBookingSchema = z.object({
   reason: z.string().trim().min(1).max(500),
 });
+
+export type CreateBookingInput = z.infer<typeof createBookingSchema>;
+export type BookingListQuery = z.infer<typeof bookingListQuerySchema>;
+export type BookingIdParams = z.infer<typeof bookingIdParamsSchema>;
