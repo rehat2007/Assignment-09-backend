@@ -84,6 +84,7 @@ Assignment step progress:
 |---|---|
 | Step 10 — Seed realistic bookings and payments | Complete |
 | Step 2 — Payment success/cancel pages | Complete |
+| Step 1 — Repair request rules | Complete |
 | Step 15 — Deploy | Not started |
 | Step 17 — Phase 9 hardening/tests | Not started |
 
@@ -1450,17 +1451,17 @@ GOOGLE_CLIENT_SECRET=
 
 ## 12. Next action
 
-**Step 10 and Step 2 are complete.** The next step is:
+**Steps 1, 2, and 10 are complete.** The next step is:
 
 1. **Step 15 — Deploy** if production credentials are ready.
-2. Otherwise **Step 1 — Request-flow rules**.
+2. Otherwise **Step 3 — Toast notifications**.
 3. Then continue with the priority order.
 
 When asking for implementation, use one step at a time, for example:
 
 ```text
-Implement Step 1 from readme.md only. Do not start Step 3.
-Run backend/frontend checks, smoke-test the request rules, clean up test data,
+Implement Step 3 from readme.md only. Do not start Step 4.
+Run backend/frontend checks, smoke-test the toasts, clean up test data,
 and update this readme with the result.
 ```
 
@@ -1559,3 +1560,34 @@ Checkout cancel URL contains /payment/cancel?booking_id=...
 
 Test payment/session data and checkout session were cleaned up. The demo
 completed-unpaid booking was restored to unpaid.
+
+### Step 1 — Repair request rules — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Changed the backend problem description minimum from 5 to 20 characters.
+- Added server-side preferred-date validation requiring today or a future date.
+- Added duplicate active-request prevention in `createBooking`:
+  - Same customer.
+  - Same service.
+  - Status `requested`, `accepted`, or `in-progress`.
+  - Returns `409 DUPLICATE_ACTIVE_BOOKING`.
+- Added the `customer_service_status` index.
+- Added read-only Name and Email fields to the request dialog.
+- Added a live problem-character counter and a 20-character minimum in the UI.
+- Passed the signed-in user's name and email from the service details page.
+
+**Verified results:**
+
+```text
+19-character problem -> 422 VALIDATION_ERROR
+Past preferred date -> 422 VALIDATION_ERROR
+Duplicate active request for the same service -> 409 DUPLICATE_ACTIVE_BOOKING
+Technician creating a request -> 403 FORBIDDEN
+Valid new request -> 201 requested / unpaid
+```
+
+The valid test booking was deleted after verification. The demo seed data was
+restored with `npm run seed`.

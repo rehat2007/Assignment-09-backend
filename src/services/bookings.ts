@@ -227,6 +227,19 @@ export async function createBooking(
     );
   }
 
+  const activeBooking = await bookings.findOne({
+    customerId,
+    serviceId: service._id,
+    status: { $in: ["requested", "accepted", "in-progress"] },
+  });
+
+  if (activeBooking) {
+    throw ApiError.conflict(
+      "You already have an active request for this service.",
+      "DUPLICATE_ACTIVE_BOOKING",
+    );
+  }
+
   const now = new Date();
   const booking: BookingDocument = {
     _id: randomUUID(),

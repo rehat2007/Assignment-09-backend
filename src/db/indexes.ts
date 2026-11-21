@@ -32,6 +32,10 @@ export async function ensureIndexes() {
         key: { technicianId: 1, status: 1, createdAt: -1 },
         name: "technician_status",
       },
+      {
+        key: { customerId: 1, serviceId: 1, status: 1 },
+        name: "customer_service_status",
+      },
       { key: { status: 1, createdAt: -1 }, name: "status_created" },
     ]),
     payments.createIndexes([

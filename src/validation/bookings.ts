@@ -14,10 +14,13 @@ import {
 
 export const createBookingSchema = z.object({
   serviceSlug: slugSchema,
-  preferredDate: isoDateSchema,
+  preferredDate: isoDateSchema.refine(
+    (value) => value >= new Date().toISOString().slice(0, 10),
+    "Choose today or a future date.",
+  ),
   phone: phoneSchema,
   address: z.string().trim().min(5).max(300),
-  problem: z.string().trim().min(5).max(2000),
+  problem: z.string().trim().min(20).max(2000),
 });
 
 export const bookingListQuerySchema = z.object({
