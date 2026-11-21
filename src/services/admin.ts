@@ -725,7 +725,9 @@ export async function approveAdminService(
     {
       $set: {
         approval: "approved",
+        approvalStatus: "approved",
         available: true,
+        isAvailable: true,
         approvedAt: now,
         approvedBy: actor.id,
         updatedAt: now,
@@ -763,6 +765,7 @@ export async function rejectAdminService(
     {
       $set: {
         approval: "rejected",
+        approvalStatus: "rejected",
         rejectionReason: reason,
         updatedAt: now,
       },

@@ -332,6 +332,7 @@ export async function getTechnicianService(
 export async function createTechnicianService(
   technicianId: string,
   technicianName: string,
+  technicianEmail: string,
   input: CreateTechnicianServiceInput,
 ) {
   const now = new Date();
@@ -343,6 +344,7 @@ export async function createTechnicianService(
       slug,
       technicianId,
       technicianName,
+      technicianEmail,
       title: input.title,
       category: input.category,
       description: input.description,
@@ -351,11 +353,18 @@ export async function createTechnicianService(
       price: input.price,
       mode: input.mode,
       coverImage: normalizeCoverImage(input.coverImage),
+      image: normalizeCoverImage(input.coverImage),
+      basePrice: input.price,
+      estimatedDuration: input.duration,
+      serviceMode: input.mode,
+      serviceArea: input.location,
       includes: input.includes,
       warranty: input.warranty || DEFAULT_WARRANTY,
       availabilityNote: input.availabilityNote || DEFAULT_AVAILABILITY,
       approval: "pending",
+      approvalStatus: "pending",
       available: true,
+      isAvailable: true,
       ratingAvg: 0,
       reviewCount: 0,
       createdAt: now,
@@ -400,21 +409,36 @@ export async function updateTechnicianService(
   if (input.title !== undefined) set.title = input.title;
   if (input.category !== undefined) set.category = input.category;
   if (input.description !== undefined) set.description = input.description;
-  if (input.location !== undefined) set.location = input.location;
-  if (input.duration !== undefined) set.duration = input.duration;
-  if (input.price !== undefined) set.price = input.price;
-  if (input.mode !== undefined) set.mode = input.mode;
+  if (input.location !== undefined) {
+    set.location = input.location;
+    set.serviceArea = input.location;
+  }
+  if (input.duration !== undefined) {
+    set.duration = input.duration;
+    set.estimatedDuration = input.duration;
+  }
+  if (input.price !== undefined) {
+    set.price = input.price;
+    set.basePrice = input.price;
+  }
+  if (input.mode !== undefined) {
+    set.mode = input.mode;
+    set.serviceMode = input.mode;
+  }
   if (input.includes !== undefined) set.includes = input.includes;
   if (input.warranty !== undefined) set.warranty = input.warranty;
   if (input.availabilityNote !== undefined) {
     set.availabilityNote = input.availabilityNote;
   }
   if (input.coverImage !== undefined) {
-    set.coverImage = normalizeCoverImage(input.coverImage);
+    const image = normalizeCoverImage(input.coverImage);
+    set.coverImage = image;
+    set.image = image;
   }
 
   if (existing.approval === "approved" || existing.approval === "rejected") {
     set.approval = "pending";
+    set.approvalStatus = "pending";
     unset.rejectionReason = "";
     unset.approvedAt = "";
     unset.approvedBy = "";
@@ -446,7 +470,13 @@ export async function setTechnicianServiceAvailability(
 ) {
   const updated = await services.findOneAndUpdate(
     { _id: id, technicianId, deletedAt: null },
-    { $set: { available, updatedAt: new Date() } },
+    {
+      $set: {
+        available,
+        isAvailable: available,
+        updatedAt: new Date(),
+      },
+    },
     { returnDocument: "after" },
   );
 

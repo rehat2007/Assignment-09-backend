@@ -92,6 +92,7 @@ technicianRouter.post(
     const service = await createTechnicianService(
       request.session!.user.id,
       request.session!.user.name,
+      request.session!.user.email,
       input,
     );
 

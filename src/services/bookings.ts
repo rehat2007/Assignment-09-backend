@@ -145,6 +145,24 @@ function technicianNameFor(
   return names.get(technicianId) ?? "FixMate technician";
 }
 
+async function loadUserContact(id: string) {
+  const objectId = ObjectId.isValid(id) ? new ObjectId(id) : null;
+  const user = objectId
+    ? await mongoDb.collection("user").findOne({ _id: objectId })
+    : null;
+
+  return {
+    name:
+      typeof user?.name === "string" && user.name.trim()
+        ? user.name
+        : "",
+    email:
+      typeof user?.email === "string" && user.email.trim()
+        ? user.email
+        : "",
+  };
+}
+
 function toCustomerBooking(
   booking: BookingDocument,
   technician: string,
@@ -242,6 +260,10 @@ export async function createBooking(
     );
   }
 
+  const [customerContact, technicianContact] = await Promise.all([
+    loadUserContact(customerId),
+    loadUserContact(service.technicianId),
+  ]);
   const now = new Date();
   const booking: BookingDocument = {
     _id: randomUUID(),
@@ -260,6 +282,13 @@ export async function createBooking(
     phone: input.phone,
     address: input.address,
     problem: input.problem,
+    technicianName: technicianContact.name || service.technicianName,
+    technicianEmail:
+      technicianContact.email || service.technicianEmail || "",
+    customerName: customerContact.name,
+    customerEmail: customerContact.email,
+    customerPhone: input.phone,
+    problemDescription: input.problem,
     status: "requested",
     paymentStatus: "unpaid",
     statusHistory: [

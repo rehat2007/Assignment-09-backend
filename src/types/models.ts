@@ -50,6 +50,15 @@ export type ServiceDocument = {
   approval: ApprovalStatus;
   rejectionReason?: string;
   available: boolean;
+  // Assignment 9 compatibility fields.
+  image?: string | null;
+  basePrice?: number;
+  estimatedDuration?: string;
+  serviceMode?: ServiceMode;
+  serviceArea?: string;
+  technicianEmail?: string;
+  approvalStatus?: ApprovalStatus;
+  isAvailable?: boolean;
   ratingAvg: number;
   reviewCount: number;
   createdAt: Date;
@@ -85,6 +94,17 @@ export type BookingDocument = {
   problem: string;
   status: BookingStatus;
   paymentStatus: PaymentStatus;
+  // Assignment 9 compatibility fields.
+  technicianName?: string;
+  technicianEmail?: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  problemDescription?: string;
+  rating?: number;
+  reviewText?: string;
+  reviewedAt?: Date;
+  reviewVisible?: boolean;
   statusHistory: BookingStatusEvent[];
   createdAt: Date;
   updatedAt: Date;
@@ -111,6 +131,14 @@ export type PaymentDocument = {
   paidAt: Date;
   invoiceNumber: string;
   createdAt: Date;
+  // Assignment 9 compatibility fields.
+  serviceTitle?: string;
+  customerName?: string;
+  customerEmail?: string;
+  technicianName?: string;
+  technicianEmail?: string;
+  stripeSessionId?: string;
+  paymentStatus?: "paid";
 };
 
 export type ReviewDocument = {

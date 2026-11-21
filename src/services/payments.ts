@@ -314,6 +314,13 @@ async function recordStripePayment(input: {
     paidAt: input.paidAt,
     invoiceNumber: `INV-${input.booking.bookingNumber}`,
     createdAt: new Date(),
+    serviceTitle: input.booking.serviceTitle,
+    customerName: input.booking.customerName ?? "",
+    customerEmail: input.booking.customerEmail ?? "",
+    technicianName: input.booking.technicianName ?? "",
+    technicianEmail: input.booking.technicianEmail ?? "",
+    stripeSessionId: input.providerSessionId,
+    paymentStatus: "paid",
   };
 
   try {

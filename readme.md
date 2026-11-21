@@ -92,6 +92,8 @@ Assignment step progress:
 | Step 9 — Confirmation modals | Complete |
 | Step 8 — Admin role and approval behavior | Complete |
 | Step 7 — JWT Challenge 2 | Complete |
+| Step 11 — `/about` route | Complete |
+| Step 12 — Schema compatibility migration | Complete |
 | Step 15 — Deploy | Not started |
 | Step 17 — Phase 9 hardening/tests | Not started |
 
@@ -1458,18 +1460,19 @@ GOOGLE_CLIENT_SECRET=
 
 ## 12. Next action
 
-**Steps 1, 2, 3, 4, 5, 6, 7, 8, 9, and 10 are complete.** The next step is:
+**Steps 1–12 are complete** (with Step 12 implemented as a compatibility
+migration). The next step is:
 
 1. **Step 15 — Deploy** if production credentials are ready.
-2. Otherwise **Steps 11–14 — About route, strict data model, API aliases, and submission README**.
-3. Then continue with the priority order.
+2. Otherwise **Steps 13–14 — API compatibility aliases and submission README**.
+3. Then **Step 17 — Hardening/tests**.
 
 When asking for implementation, use one step at a time, for example:
 
 ```text
-Implement Step 11 from readme.md only. Do not start Step 12.
-Run backend/frontend checks, verify /about and redirects, clean up test data,
-and update this readme with the result.
+Implement Step 13 from readme.md only. Do not start Step 14.
+Run backend/frontend checks, verify the exact API paths and 401/403 behavior,
+clean up test data, and update this readme with the result.
 ```
 
 ---
@@ -1856,3 +1859,116 @@ POST /api/v1/auth/logout -> 200 and clears fixmate_token
 
 The fallback exists only for SSR/session compatibility; the JWT path is
 verified independently with 401/403 checks.
+
+### Step 11 — `/about` route — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Moved the previous `/how-it-works` content to `src/app/about/page.tsx`.
+- Updated the metadata to “About FixMate”.
+- Updated the breadcrumb from “How it works” to “About”.
+- Added a permanent redirect:
+  - `/how-it-works` → `/about`
+- Updated navbar, footer, homepage, and CTA links to point directly to `/about`.
+
+**Verified results:**
+
+```text
+/about -> 200
+/how-it-works -> 308 redirect to /about
+Navbar and footer show “About”
+Frontend build includes /about
+```
+
+### Step 12 — Schema compatibility migration — complete
+
+**Date:** 2026-11-21
+
+**Implemented as a safe compatibility migration**, preserving the optional
+review, technician-profile, and audit features.
+
+**Services now include:**
+
+```text
+image
+basePrice
+estimatedDuration
+serviceMode
+serviceArea
+technicianEmail
+approvalStatus
+isAvailable
+```
+
+**Bookings now include:**
+
+```text
+serviceImage
+technicianName
+technicianEmail
+customerName
+customerEmail
+customerPhone
+problemDescription
+rating
+reviewText
+reviewedAt
+reviewVisible
+```
+
+**Payments now include:**
+
+```text
+serviceTitle
+customerName
+customerEmail
+technicianName
+technicianEmail
+stripeSessionId
+paymentStatus
+```
+
+**Users now include the technician profile fields:**
+
+```text
+plan
+ratingAvg
+jobsCompleted
+repliesIn
+specialties
+verificationStatus
+```
+
+**Code changes:**
+
+- Seed services, bookings, and payments write both the application fields and
+  the Assignment 9 alias fields.
+- New services and service edits write the service aliases.
+- Service availability and approval changes keep `isAvailable` and
+  `approvalStatus` in sync.
+- New bookings copy customer/technician names and emails.
+- New Stripe payments copy the booking/payment aliases.
+- New reviews also write rating, text, and reviewed timestamp to the booking.
+- Added `scripts/migrate-schema.ts` to backfill existing documents.
+
+**Verified results:**
+
+```text
+Service create -> aliases populated; approvalStatus pending; isAvailable true
+Service update -> basePrice, estimatedDuration, serviceMode, serviceArea updated
+Booking create -> customer/technician names, emails, phone, problem copied
+Review create -> rating/reviewText/reviewedAt/reviewVisible written to booking
+Seed services/bookings/payments -> all alias fields present
+Migration script -> 3 user profiles, 15 services, 8 bookings, 2 payments backfilled
+Backend typecheck/build -> pass
+Frontend typecheck/lint/build -> pass
+```
+
+**Important limitation:** the three optional extensions
+(`reviews`, `technicianProfiles`, `auditLogs`) are still present. Dropping them
+would remove the optional review feature and admin audit history. The four core
+collections now contain the required Assignment 9 fields, but a strictly literal
+“exactly four collections” review still requires the destructive follow-up
+described in Step 12 above.

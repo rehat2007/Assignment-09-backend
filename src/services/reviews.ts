@@ -118,6 +118,19 @@ export async function createReview(
     throw error;
   }
 
+  await bookings.updateOne(
+    { _id: bookingId, customerId },
+    {
+      $set: {
+        rating: review.rating,
+        reviewText: review.text,
+        reviewedAt: review.createdAt,
+        reviewVisible: true,
+        updatedAt: new Date(),
+      },
+    },
+  );
+
   await recomputeServiceRating(review.serviceId);
 
   return {

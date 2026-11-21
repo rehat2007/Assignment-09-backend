@@ -156,6 +156,10 @@ async function seedProfiles(
       throw new Error(`Missing technician user for ${seed.email}`);
     }
 
+    const specialtyList = [
+      ...(specialties.get(seed.name) ?? new Set<string>()),
+    ].sort();
+
     await technicianProfiles.updateOne(
       { userId: user.id },
       {
@@ -166,7 +170,7 @@ async function seedProfiles(
           ratingAvg: seed.rating ?? 0,
           jobsCompleted: seed.jobs ?? 0,
           repliesIn: "~12 min",
-          specialties: [...(specialties.get(seed.name) ?? new Set<string>())].sort(),
+          specialties: specialtyList,
           updatedAt: now,
         },
         $setOnInsert: {
@@ -175,6 +179,21 @@ async function seedProfiles(
         },
       },
       { upsert: true },
+    );
+
+    await usersCollection.updateOne(
+      { email: seed.email },
+      {
+        $set: {
+          plan: seed.plan,
+          ratingAvg: seed.rating ?? 0,
+          jobsCompleted: seed.jobs ?? 0,
+          repliesIn: "~12 min",
+          specialties: specialtyList,
+          verificationStatus: "verified",
+          updatedAt: now,
+        },
+      },
     );
   }
 
@@ -187,12 +206,14 @@ async function seedServices(
   adminUserId: string,
 ) {
   const technicianIdByName = new Map<string, string>();
+  const technicianEmailByName = new Map<string, string>();
 
   for (const seed of seeds.filter((user) => user.accountType === "technician")) {
     const user = usersByEmail.get(seed.email);
 
     if (user) {
       technicianIdByName.set(seed.name, user.id);
+      technicianEmailByName.set(seed.name, seed.email);
     }
   }
 
@@ -215,6 +236,8 @@ async function seedServices(
           legacyId: seed.legacyId,
           technicianId,
           technicianName: seed.technicianName,
+          technicianEmail:
+            technicianEmailByName.get(seed.technicianName) ?? "",
           title: seed.title,
           category: seed.category,
           description: seed.description,
@@ -223,11 +246,18 @@ async function seedServices(
           price: seed.price,
           mode: seed.mode,
           coverImage: null,
+          image: null,
+          basePrice: seed.price,
+          estimatedDuration: seed.duration,
+          serviceMode: seed.mode,
+          serviceArea: seed.location,
           includes: seed.includes,
           warranty: seed.warranty,
           availabilityNote: seed.availabilityNote,
           approval: "approved",
+          approvalStatus: "approved",
           available: true,
+          isAvailable: true,
           ratingAvg: seed.rating,
           reviewCount: seed.reviewCount,
           createdAt,
@@ -468,6 +498,12 @@ async function seedBookings(
       phone: customerSeed?.phone || "+880 1700 000000",
       address: `House 12, Road 4, ${customerSeed?.area || "Dhaka"}`,
       problem: seed.problem,
+      technicianName: service.technicianName,
+      technicianEmail: service.technicianEmail ?? "",
+      customerName: customerUser.name,
+      customerEmail: customerUser.email,
+      customerPhone: customerSeed?.phone || "+880 1700 000000",
+      problemDescription: seed.problem,
       status: seed.status,
       paymentStatus: seed.payment ? "paid" : "unpaid",
       statusHistory: events,
@@ -514,6 +550,13 @@ async function seedBookings(
         paidAt,
         invoiceNumber: seed.payment.invoiceNumber,
         createdAt: paidAt,
+        serviceTitle: service.title,
+        customerName: customerUser.name,
+        customerEmail: customerUser.email,
+        technicianName: service.technicianName,
+        technicianEmail: service.technicianEmail ?? "",
+        stripeSessionId: seed.payment.sessionId,
+        paymentStatus: "paid",
       };
 
       await payments.updateOne(
