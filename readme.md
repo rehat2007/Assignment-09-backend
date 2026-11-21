@@ -89,6 +89,7 @@ Assignment step progress:
 | Step 5 — Service images and technician photos | Complete |
 | Step 6 — ImgBB upload driver | Complete |
 | Step 4 — Custom 404, error boundary, loading | Complete |
+| Step 9 — Confirmation modals | Complete |
 | Step 15 — Deploy | Not started |
 | Step 17 — Phase 9 hardening/tests | Not started |
 
@@ -1455,18 +1456,18 @@ GOOGLE_CLIENT_SECRET=
 
 ## 12. Next action
 
-**Steps 1, 2, 3, 4, 5, 6, and 10 are complete.** The next step is:
+**Steps 1, 2, 3, 4, 5, 6, 9, and 10 are complete.** The next step is:
 
 1. **Step 15 — Deploy** if production credentials are ready.
-2. Otherwise **Step 9 — Confirmation modals**.
+2. Otherwise **Step 8 — Admin role and approval behavior**.
 3. Then continue with the priority order.
 
 When asking for implementation, use one step at a time, for example:
 
 ```text
-Implement Step 9 from readme.md only. Do not start Step 8.
-Run backend/frontend checks, smoke-test the confirmation dialogs, clean up test data,
-and update this readme with the result.
+Implement Step 8 from readme.md only. Do not start Step 7.
+Run backend/frontend checks, smoke-test admin role and approval behavior,
+clean up test data, and update this readme with the result.
 ```
 
 ---
@@ -1726,3 +1727,42 @@ Frontend production build -> pass
 
 The error boundary compiles into the production build. A temporary throwing
 route was used to confirm the route is picked up, then removed before commit.
+
+### Step 9 — Confirmation modals — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Added `src/components/ui/confirm-dialog.tsx`:
+  - Focus-safe portal dialog.
+  - Escape/overlay close.
+  - Pending state.
+  - Destructive and normal variants.
+  - Optional child content for a reason field.
+- Replaced the direct cancel action with a confirmation dialog:
+  - “Cancel this request?”
+  - Shows the service and booking number.
+  - Confirm label: “Cancel request”.
+- Replaced direct request rejection with a confirmation dialog:
+  - “Reject this request?”
+  - Shows the service and customer.
+  - Confirm label: “Reject request”.
+- Replaced `window.confirm` for service deletion with a confirmation dialog:
+  - “Remove this listing?”
+  - Confirm label: “Remove listing”.
+- Replaced `window.prompt` for admin service rejection with a reason dialog:
+  - Rejection reason textarea.
+  - 500-character limit.
+  - Confirm label: “Reject listing”.
+- Removed all remaining `window.confirm` and `window.prompt` calls.
+
+**Verified results:**
+
+```text
+No window.confirm or window.prompt references remain.
+Closing or cancelling a dialog performs no action.
+Confirming performs exactly one API request.
+Frontend TypeScript -> pass
+Frontend ESLint -> pass
+```
