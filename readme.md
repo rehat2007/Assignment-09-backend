@@ -95,6 +95,7 @@ Assignment step progress:
 | Step 11 — `/about` route | Complete |
 | Step 12 — Schema compatibility migration | Complete |
 | Step 13 — Exact API compatibility aliases | Complete |
+| Step 14 — Submission README and credentials | Complete |
 | Step 15 — Deploy | Not started |
 | Step 17 — Phase 9 hardening/tests | Not started |
 
@@ -1461,18 +1462,19 @@ GOOGLE_CLIENT_SECRET=
 
 ## 12. Next action
 
-**Steps 1–13 are complete** (with Step 12 implemented as a compatibility
+**Steps 1–14 are complete** (with Step 12 implemented as a compatibility
 migration). The next step is:
 
 1. **Step 15 — Deploy** if production credentials are ready.
-2. Otherwise **Step 14 — Submission README and credentials**.
-3. Then **Step 17 — Hardening/tests**.
+2. Otherwise **Step 17 — Phase 9 hardening and tests**.
+3. Fill the live URL and admin password in the submission README after
+   deployment.
 
 When asking for implementation, use one step at a time, for example:
 
 ```text
-Implement Step 14 from readme.md only. Do not start Step 15.
-Run backend/frontend checks, verify the README and credentials section,
+Implement Step 17 from readme.md only. Do not deploy.
+Run backend/frontend checks, add the hardening/tests, clean up test data,
 and update this readme with the result.
 ```
 
@@ -2039,3 +2041,37 @@ PATCH /api/users/profile -> 200
 
 All temporary services, bookings, role changes, and profile edits were cleaned
 up. The demo seed and schema migration were re-run afterward.
+
+### Step 14 — Submission README and credentials — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Added a submission-focused section at the top of
+  `fix_mate_front_end/README.md`:
+  - Project name and purpose.
+  - Live URL placeholder.
+  - Backend health URL placeholder.
+  - Admin, technician, and customer demo credentials.
+  - Key features.
+  - Tech stack.
+  - npm package highlights.
+  - Local setup commands.
+  - Backend and frontend environment templates.
+  - API overview, including the compatibility aliases.
+  - Deployment notes.
+  - Known limitations.
+- Documented the demo password and seeded accounts.
+- Left the admin password as a placeholder that must be filled from the backend
+  `.env` before submission, so the real secret is not committed.
+- Added `scripts/migrate-schema.ts` as a deployment step.
+
+**Verified results:**
+
+```text
+Frontend README includes all required submission sections.
+Backend plan includes the submission step and credential notes.
+Admin password is not committed.
+Live URL remains a marked placeholder until deployment.
+```
