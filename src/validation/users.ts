@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { PAGE_SIZES } from "../http/response.js";
 import {
-  accountTypeSchema,
   emptyToUndefined,
   idSchema,
   paginationFields,
@@ -20,8 +19,7 @@ export const adminUsersQuerySchema = z.object({
 });
 
 export const roleChangeSchema = z.object({
-  // Customer <-> technician. Admin promotion stays in the seed/admin tooling.
-  role: accountTypeSchema,
+  role: roleSchema,
 });
 
 export const suspendUserSchema = z.object({

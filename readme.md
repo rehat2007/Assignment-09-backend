@@ -90,6 +90,7 @@ Assignment step progress:
 | Step 6 — ImgBB upload driver | Complete |
 | Step 4 — Custom 404, error boundary, loading | Complete |
 | Step 9 — Confirmation modals | Complete |
+| Step 8 — Admin role and approval behavior | Complete |
 | Step 15 — Deploy | Not started |
 | Step 17 — Phase 9 hardening/tests | Not started |
 
@@ -1456,18 +1457,18 @@ GOOGLE_CLIENT_SECRET=
 
 ## 12. Next action
 
-**Steps 1, 2, 3, 4, 5, 6, 9, and 10 are complete.** The next step is:
+**Steps 1, 2, 3, 4, 5, 6, 8, 9, and 10 are complete.** The next step is:
 
 1. **Step 15 — Deploy** if production credentials are ready.
-2. Otherwise **Step 8 — Admin role and approval behavior**.
+2. Otherwise **Step 7 — JWT Challenge 2**.
 3. Then continue with the priority order.
 
 When asking for implementation, use one step at a time, for example:
 
 ```text
-Implement Step 8 from readme.md only. Do not start Step 7.
-Run backend/frontend checks, smoke-test admin role and approval behavior,
-clean up test data, and update this readme with the result.
+Implement Step 7 from readme.md only. Do not start Step 11.
+Run backend/frontend checks, smoke-test JWT 401/403 behavior, clean up test data,
+and update this readme with the result.
 ```
 
 ---
@@ -1766,3 +1767,37 @@ Confirming performs exactly one API request.
 Frontend TypeScript -> pass
 Frontend ESLint -> pass
 ```
+
+### Step 8 — Admin role and approval behavior — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Expanded the role-change schema from customer/technician to
+  customer/technician/admin.
+- Updated `changeAdminUserRole`:
+  - Promotes to Better Auth `role: "admin"`.
+  - Preserves technician account type when promoting a technician.
+  - Demotes to `role: "user"` with the selected account type.
+  - Keeps the self-role-change block.
+- Enabled the Admin option in the admin users role selector.
+- Allowed approved services to be rejected.
+- Allowed rejected services to be approved.
+- Kept pending services supporting both actions.
+- Kept audit log writes for role changes, approvals, and rejections.
+
+**Verified results:**
+
+```text
+Invalid role -> 422 VALIDATION_ERROR
+Promote customer -> admin -> 200, role admin
+Demote admin -> customer -> 200, role customer
+Change own role -> 409 CANNOT_CHANGE_OWN_ROLE
+Approve an already-approved service -> 200, approved
+Reject an approved service -> 200, rejected
+Re-approve the rejected service -> 200, approved
+```
+
+The test user role, service approval fields, and demo seed were restored after
+verification.

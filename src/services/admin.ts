@@ -493,7 +493,7 @@ export async function getAdminUser(id: string): Promise<AdminUserDto> {
 export async function changeAdminUserRole(
   actor: AdminActor,
   targetId: string,
-  role: "customer" | "technician",
+  role: AppRole,
 ): Promise<AdminUserDto> {
   const objectId = userObjectId(targetId);
 
@@ -516,14 +516,25 @@ export async function changeAdminUserRole(
   }
 
   const previousRole = appRoleFor(target);
-  const nextRole = role === "technician" ? "technician" : "user";
+  const nextRole =
+    role === "admin"
+      ? "admin"
+      : role === "technician"
+        ? "technician"
+        : "user";
+  const nextAccountType =
+    role === "admin"
+      ? target.accountType === "technician"
+        ? "technician"
+        : "customer"
+      : role;
 
   await users.updateOne(
     { _id: objectId },
     {
       $set: {
         role: nextRole,
-        accountType: role,
+        accountType: nextAccountType,
         updatedAt: new Date(),
       },
     },
@@ -710,7 +721,7 @@ export async function approveAdminService(
 ): Promise<AdminServiceDto> {
   const now = new Date();
   const updated = await services.findOneAndUpdate(
-    { _id: id, approval: "pending", deletedAt: null },
+    { _id: id, deletedAt: null },
     {
       $set: {
         approval: "approved",
@@ -727,7 +738,7 @@ export async function approveAdminService(
   if (!updated) {
     return serviceTransitionFailure(
       id,
-      "This listing is not pending review.",
+      "This listing could not be approved.",
     );
   }
 
@@ -748,7 +759,7 @@ export async function rejectAdminService(
 ): Promise<AdminServiceDto> {
   const now = new Date();
   const updated = await services.findOneAndUpdate(
-    { _id: id, approval: "pending", deletedAt: null },
+    { _id: id, deletedAt: null },
     {
       $set: {
         approval: "rejected",
@@ -766,7 +777,7 @@ export async function rejectAdminService(
   if (!updated) {
     return serviceTransitionFailure(
       id,
-      "This listing is not pending review.",
+      "This listing could not be rejected.",
     );
   }
 
