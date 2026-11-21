@@ -1,6 +1,6 @@
 import { Router, type Response } from "express";
 import { ok, paginated } from "../http/response.js";
-import { requireRole } from "../middleware/auth.js";
+import { verifyAdmin } from "../middleware/jwt-auth.js";
 import {
   getValidatedBody,
   getValidatedParams,
@@ -70,7 +70,7 @@ function actorFrom(request: {
 }
 
 export const adminRouter = Router();
-const adminOnly = requireRole(["admin"]);
+const adminOnly = verifyAdmin;
 
 adminRouter.get("/overview", ...adminOnly, async (request, response) => {
   const overview = await getAdminOverview();

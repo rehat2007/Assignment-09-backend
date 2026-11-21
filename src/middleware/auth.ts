@@ -1,8 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
-import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "../auth.js";
-import { ApiError } from "../http/api-error.js";
-import { getAppRole, type AppRole } from "../roles.js";
+import type { AppRole } from "../roles.js";
+import { verifyRole, verifyToken } from "./jwt-auth.js";
 
 export type AuthSession = typeof auth.$Infer.Session;
 
@@ -17,37 +16,12 @@ declare global {
 
 export async function requireUser(
   request: Request,
-  _response: Response,
+  response: Response,
   next: NextFunction,
 ) {
-  try {
-    const session = await auth.api.getSession({
-      headers: fromNodeHeaders(request.headers),
-    });
-
-    if (!session) {
-      next(ApiError.unauthenticated());
-      return;
-    }
-
-    request.session = session;
-    request.appRole = getAppRole(session.user);
-    next();
-  } catch (error) {
-    next(error);
-  }
+  await verifyToken(request, response, next);
 }
 
 export function requireRole(roles: AppRole[]): RequestHandler[] {
-  return [
-    requireUser,
-    (request: Request, _response: Response, next: NextFunction) => {
-      if (!request.appRole || !roles.includes(request.appRole)) {
-        next(ApiError.forbidden());
-        return;
-      }
-
-      next();
-    },
-  ];
+  return verifyRole(roles);
 }

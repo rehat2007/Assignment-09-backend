@@ -1,6 +1,9 @@
 import { Router, type Response } from "express";
 import { ok } from "../http/response.js";
-import { requireRole, requireUser } from "../middleware/auth.js";
+import {
+  verifyCustomer,
+  verifyToken,
+} from "../middleware/jwt-auth.js";
 import {
   getValidatedParams,
   getValidatedQuery,
@@ -26,7 +29,7 @@ export const paymentsRouter = Router();
 
 paymentsRouter.get(
   "/verify",
-  ...requireRole(["customer"]),
+  ...verifyCustomer,
   validateQuery(paymentVerifyQuerySchema),
   async (request, response) => {
     const { session_id: sessionId } =
@@ -43,7 +46,7 @@ paymentsRouter.get(
 
 paymentsRouter.get(
   "/:id",
-  requireUser,
+  verifyToken,
   validateParams(paymentIdParamsSchema),
   async (request, response) => {
     const { id } = getValidatedParams<PaymentIdParams>(request);

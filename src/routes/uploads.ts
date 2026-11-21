@@ -6,7 +6,10 @@ import { ApiError } from "../http/api-error.js";
 import { ok } from "../http/response.js";
 import { HTTP_STATUS } from "../http/status.js";
 import { putImage } from "../lib/storage.js";
-import { requireRole, requireUser } from "../middleware/auth.js";
+import {
+  verifyTechnician,
+  verifyToken,
+} from "../middleware/jwt-auth.js";
 
 const IMAGE_TYPES = {
   "image/jpeg": "jpg",
@@ -172,14 +175,14 @@ export const uploadsRouter = Router();
 
 uploadsRouter.post(
   "/avatar",
-  requireUser,
+  verifyToken,
   singleImage(AVATAR_MAX_BYTES, "2 MB"),
   uploadHandler("avatars", AVATAR_MAX_BYTES, "2 MB"),
 );
 
 uploadsRouter.post(
   "/service-cover",
-  ...requireRole(["technician"]),
+  ...verifyTechnician,
   singleImage(SERVICE_COVER_MAX_BYTES, "5 MB"),
   uploadHandler("service-covers", SERVICE_COVER_MAX_BYTES, "5 MB"),
 );

@@ -91,6 +91,7 @@ Assignment step progress:
 | Step 4 — Custom 404, error boundary, loading | Complete |
 | Step 9 — Confirmation modals | Complete |
 | Step 8 — Admin role and approval behavior | Complete |
+| Step 7 — JWT Challenge 2 | Complete |
 | Step 15 — Deploy | Not started |
 | Step 17 — Phase 9 hardening/tests | Not started |
 
@@ -1457,17 +1458,17 @@ GOOGLE_CLIENT_SECRET=
 
 ## 12. Next action
 
-**Steps 1, 2, 3, 4, 5, 6, 8, 9, and 10 are complete.** The next step is:
+**Steps 1, 2, 3, 4, 5, 6, 7, 8, 9, and 10 are complete.** The next step is:
 
 1. **Step 15 — Deploy** if production credentials are ready.
-2. Otherwise **Step 7 — JWT Challenge 2**.
+2. Otherwise **Steps 11–14 — About route, strict data model, API aliases, and submission README**.
 3. Then continue with the priority order.
 
 When asking for implementation, use one step at a time, for example:
 
 ```text
-Implement Step 7 from readme.md only. Do not start Step 11.
-Run backend/frontend checks, smoke-test JWT 401/403 behavior, clean up test data,
+Implement Step 11 from readme.md only. Do not start Step 12.
+Run backend/frontend checks, verify /about and redirects, clean up test data,
 and update this readme with the result.
 ```
 
@@ -1801,3 +1802,57 @@ Re-approve the rejected service -> 200, approved
 
 The test user role, service approval fields, and demo seed were restored after
 verification.
+
+### Step 7 — JWT Challenge 2 — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Installed `jsonwebtoken` and `@types/jsonwebtoken`.
+- Added `JWT_SECRET` and `JWT_EXPIRES_IN` to the environment schema and
+  `.env.example`.
+- Added `src/lib/jwt.ts`:
+  - `signAccessToken`
+  - `verifyAccessToken`
+  - `fixmate_token` cookie name and 7-day cookie age.
+- Added `src/middleware/jwt-auth.ts`:
+  - `verifyToken` reads a Bearer token or the httpOnly `fixmate_token` cookie.
+  - Invalid/expired tokens return `401`.
+  - Valid tokens load the current user from MongoDB and derive the live role.
+  - Banned users receive `403`.
+  - `verifyCustomer`, `verifyTechnician`, and `verifyAdmin` enforce roles.
+  - A Better Auth session fallback keeps server-rendered pages working while the
+    browser acquires its JWT cookie. A request with an invalid JWT never falls
+    back.
+- Replaced route-level `requireUser`/`requireRole` usage with the named JWT
+  middlewares across customer, technician, admin, payment, upload, booking, and
+  profile routes.
+- Added `POST /api/v1/auth/token`:
+  - Requires a valid Better Auth session or JWT.
+  - Signs a JWT and sets it as an httpOnly cookie.
+  - Returns the token, token type, and expiry.
+- Added `POST /api/v1/auth/logout` to clear the JWT cookie.
+- Added `TokenBootstrap` to the root layout:
+  - Acquires a JWT whenever a Better Auth session is present.
+- Sign-in, sign-up, and sign-out now issue/clear the JWT cookie.
+
+**Verified results:**
+
+```text
+POST /api/v1/auth/token -> 200, token + fixmate_token cookie
+No auth -> 401
+Valid customer JWT -> 200 on /api/v1/me and /api/v1/bookings
+Invalid JWT -> 401
+Expired JWT -> 401
+Customer JWT on admin route -> 403
+Technician JWT on admin route -> 403
+Customer JWT on technician route -> 403
+Admin JWT on admin route -> 200
+Technician JWT on technician route -> 200
+Better Auth cookie fallback -> 200
+POST /api/v1/auth/logout -> 200 and clears fixmate_token
+```
+
+The fallback exists only for SSR/session compatibility; the JWT path is
+verified independently with 401/403 checks.

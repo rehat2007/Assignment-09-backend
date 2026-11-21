@@ -1,7 +1,7 @@
 import { Router, type Response } from "express";
 import { ok, paginated } from "../http/response.js";
 import { HTTP_STATUS } from "../http/status.js";
-import { requireRole } from "../middleware/auth.js";
+import { verifyTechnician } from "../middleware/jwt-auth.js";
 import {
   getValidatedBody,
   getValidatedParams,
@@ -52,7 +52,7 @@ function noStore(response: Response) {
 }
 
 export const technicianRouter = Router();
-const technicianOnly = requireRole(["technician"]);
+const technicianOnly = verifyTechnician;
 
 technicianRouter.get(
   "/overview",

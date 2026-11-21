@@ -1,6 +1,6 @@
 import { Router, type Response } from "express";
 import { ok, paginated } from "../http/response.js";
-import { requireRole } from "../middleware/auth.js";
+import { verifyCustomer } from "../middleware/jwt-auth.js";
 import {
   getValidatedQuery,
   validateQuery,
@@ -20,7 +20,7 @@ export const customerRouter = Router();
 
 customerRouter.get(
   "/overview",
-  ...requireRole(["customer"]),
+  ...verifyCustomer,
   async (request, response) => {
     const overview = await getCustomerOverview(request.session!.user.id);
 
@@ -31,7 +31,7 @@ customerRouter.get(
 
 customerRouter.get(
   "/payments",
-  ...requireRole(["customer"]),
+  ...verifyCustomer,
   validateQuery(paymentListQuerySchema),
   async (request, response) => {
     const query = getValidatedQuery<PaymentListQuery>(request);

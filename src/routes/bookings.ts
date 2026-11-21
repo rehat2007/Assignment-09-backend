@@ -1,7 +1,10 @@
 import { Router, type Response } from "express";
 import { ok, paginated } from "../http/response.js";
 import { HTTP_STATUS } from "../http/status.js";
-import { requireRole, requireUser } from "../middleware/auth.js";
+import {
+  verifyCustomer,
+  verifyToken,
+} from "../middleware/jwt-auth.js";
 import {
   getValidatedBody,
   getValidatedParams,
@@ -39,7 +42,7 @@ export const bookingsRouter = Router();
 
 bookingsRouter.post(
   "/",
-  ...requireRole(["customer"]),
+  ...verifyCustomer,
   validateBody(createBookingSchema),
   async (request, response) => {
     const input = getValidatedBody<CreateBookingInput>(request);
@@ -52,7 +55,7 @@ bookingsRouter.post(
 
 bookingsRouter.get(
   "/",
-  ...requireRole(["customer"]),
+  ...verifyCustomer,
   validateQuery(bookingListQuerySchema),
   async (request, response) => {
     const query = getValidatedQuery<BookingListQuery>(request);
@@ -70,7 +73,7 @@ bookingsRouter.get(
 
 bookingsRouter.get(
   "/:id",
-  requireUser,
+  verifyToken,
   validateParams(bookingIdParamsSchema),
   async (request, response) => {
     const { id } = getValidatedParams<BookingIdParams>(request);
@@ -87,7 +90,7 @@ bookingsRouter.get(
 
 bookingsRouter.post(
   "/:id/cancel",
-  ...requireRole(["customer"]),
+  ...verifyCustomer,
   validateParams(bookingIdParamsSchema),
   async (request, response) => {
     const { id } = getValidatedParams<BookingIdParams>(request);
@@ -100,7 +103,7 @@ bookingsRouter.post(
 
 bookingsRouter.post(
   "/:id/checkout",
-  ...requireRole(["customer"]),
+  ...verifyCustomer,
   validateParams(bookingIdParamsSchema),
   async (request, response) => {
     const { id } = getValidatedParams<BookingIdParams>(request);
@@ -117,7 +120,7 @@ bookingsRouter.post(
 
 bookingsRouter.post(
   "/:id/review",
-  ...requireRole(["customer"]),
+  ...verifyCustomer,
   validateParams(bookingIdParamsSchema),
   validateBody(createReviewSchema),
   async (request, response) => {

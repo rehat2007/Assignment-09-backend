@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { ok } from "../http/response.js";
-import { requireUser } from "../middleware/auth.js";
+import { verifyToken } from "../middleware/jwt-auth.js";
 import { getAppRole } from "../roles.js";
 
 export const meRouter = Router();
@@ -11,11 +11,11 @@ export const meRouter = Router();
  * Profile mutations intentionally stay on Better Auth's
  * `POST /api/auth/update-user`; do not add a second PATCH /me path.
  */
-meRouter.get("/", requireUser, (request, response) => {
+meRouter.get("/", verifyToken, (request, response) => {
   const session = request.session;
 
   if (!session) {
-    throw new Error("requireUser did not attach a session.");
+    throw new Error("verifyToken did not attach a session.");
   }
 
   response.json(

@@ -11,6 +11,7 @@ import { logger } from "./lib/logger.js";
 import { localUploadDirectory } from "./lib/storage.js";
 import { errorHandler, notFoundHandler } from "./middleware/errors.js";
 import { requestContext } from "./middleware/request-context.js";
+import { authTokenRouter } from "./routes/auth-token.js";
 import { catalogRouter } from "./routes/catalog.js";
 import { adminRouter } from "./routes/admin.js";
 import { bookingsRouter } from "./routes/bookings.js";
@@ -90,6 +91,7 @@ app.get("/api/v1/health", async (request: Request, response: Response) => {
   }
 });
 
+app.use("/api/v1/auth", authTokenRouter);
 app.use("/api/v1/me", meRouter);
 app.use("/api/v1", catalogRouter);
 app.use("/api/v1/bookings", bookingsRouter);
