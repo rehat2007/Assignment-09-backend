@@ -14,6 +14,7 @@ import { requestContext } from "./middleware/request-context.js";
 import { authTokenRouter } from "./routes/auth-token.js";
 import { catalogRouter } from "./routes/catalog.js";
 import { adminRouter } from "./routes/admin.js";
+import { compatRouter } from "./routes/compat.js";
 import { bookingsRouter } from "./routes/bookings.js";
 import { customerRouter } from "./routes/customer.js";
 import { meRouter } from "./routes/me.js";
@@ -99,6 +100,9 @@ app.use("/api/v1/customer", customerRouter);
 app.use("/api/v1/payments", paymentsRouter);
 app.use("/api/v1/technician", technicianRouter);
 app.use("/api/v1/admin", adminRouter);
+
+// Assignment 9 compatibility aliases at the exact documented paths.
+app.use("/api", compatRouter);
 
 // New uploads: local development driver or S3-compatible object storage.
 app.use(

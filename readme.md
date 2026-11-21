@@ -94,6 +94,7 @@ Assignment step progress:
 | Step 7 — JWT Challenge 2 | Complete |
 | Step 11 — `/about` route | Complete |
 | Step 12 — Schema compatibility migration | Complete |
+| Step 13 — Exact API compatibility aliases | Complete |
 | Step 15 — Deploy | Not started |
 | Step 17 — Phase 9 hardening/tests | Not started |
 
@@ -1460,19 +1461,19 @@ GOOGLE_CLIENT_SECRET=
 
 ## 12. Next action
 
-**Steps 1–12 are complete** (with Step 12 implemented as a compatibility
+**Steps 1–13 are complete** (with Step 12 implemented as a compatibility
 migration). The next step is:
 
 1. **Step 15 — Deploy** if production credentials are ready.
-2. Otherwise **Steps 13–14 — API compatibility aliases and submission README**.
+2. Otherwise **Step 14 — Submission README and credentials**.
 3. Then **Step 17 — Hardening/tests**.
 
 When asking for implementation, use one step at a time, for example:
 
 ```text
-Implement Step 13 from readme.md only. Do not start Step 14.
-Run backend/frontend checks, verify the exact API paths and 401/403 behavior,
-clean up test data, and update this readme with the result.
+Implement Step 14 from readme.md only. Do not start Step 15.
+Run backend/frontend checks, verify the README and credentials section,
+and update this readme with the result.
 ```
 
 ---
@@ -1972,3 +1973,69 @@ would remove the optional review feature and admin audit history. The four core
 collections now contain the required Assignment 9 fields, but a strictly literal
 “exactly four collections” review still requires the destructive follow-up
 described in Step 12 above.
+
+### Step 13 — Exact API compatibility aliases — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Added `src/routes/compat.ts` and mounted it at `/api`.
+- Existing `/api/v1` API remains unchanged for the frontend.
+- Added the exact Assignment 9 paths:
+  - `POST /api/bookings`
+  - `PATCH /api/bookings/:id/cancel`
+  - `GET /api/bookings/my`
+  - `POST /api/payments/create-checkout-session`
+  - `POST /api/services`
+  - `PATCH /api/services/:id`
+  - `DELETE /api/services/:id`
+  - `GET /api/bookings/technician`
+  - `PATCH /api/bookings/:id/status`
+  - `GET /api/admin/users`
+  - `PATCH /api/admin/users/:id/role`
+  - `PATCH /api/admin/services/:id/approval`
+  - `GET /api/admin/bookings`
+  - `GET /api/admin/payments`
+  - `PATCH /api/users/profile`
+  - `GET /api/services`
+  - `GET /api/services/:id`
+- Added public service lookup by slug, legacy ID, or MongoDB `_id`.
+- Added the technician status mapping:
+  - `accepted` → accept
+  - `rejected` → reject with reason
+  - `in-progress` → start
+  - `completed` → complete with required final amount
+- Applied JWT middlewares:
+  - `verifyCustomer`
+  - `verifyTechnician`
+  - `verifyAdmin`
+  - `verifyToken` for profile updates
+- Public services remain unauthenticated.
+
+**Verified results:**
+
+```text
+GET /api/services -> 200
+GET /api/services/:slug -> 200
+GET /api/services/:id -> 200
+GET /api/bookings/my -> 200
+No auth -> 401
+Customer token on admin route -> 403
+POST /api/bookings -> 201
+PATCH /api/bookings/:id/cancel -> 200, cancelled
+Checkout on a cancelled booking -> 409 INVALID_STATE
+GET /api/payments/verify with an unknown session -> 404
+GET /api/bookings/technician -> 200
+POST /api/services -> 201
+PATCH /api/services/:id -> 200
+PATCH /api/admin/services/:id/approval -> 200, approved
+PATCH /api/bookings/:id/status accepted/in-progress/completed -> 200
+DELETE /api/services/:id -> 204
+GET /api/admin/users/bookings/payments -> 200
+PATCH /api/admin/users/:id/role admin/customer -> 200
+PATCH /api/users/profile -> 200
+```
+
+All temporary services, bookings, role changes, and profile edits were cleaned
+up. The demo seed and schema migration were re-run afterward.
