@@ -4,7 +4,11 @@
 //   fix_mate_front_end/src/lib/admin-data.ts
 // MongoDB becomes the source of truth after seeding; update this fixture only
 // if the demo data must be re-seeded.
-import type { ServiceCategory, ServiceMode } from "../src/types/models.js";
+import type {
+  BookingStatus,
+  ServiceCategory,
+  ServiceMode,
+} from "../src/types/models.js";
 
 export type SeedReview = {
   name: string;
@@ -45,6 +49,30 @@ export type DemoUserSeed = {
   plan: "free" | "pro";
   rating?: number;
   jobs?: number;
+};
+
+export type DemoBookingSeed = {
+  id: string;
+  bookingNumber: string;
+  customerEmail: string;
+  serviceSlug: string;
+  status: BookingStatus;
+  preferredDate: string;
+  problem: string;
+  createdAt: string;
+  acceptedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  cancelledAt?: string;
+  rejectedAt?: string;
+  paidAt?: string;
+  finalAmount?: number;
+  payment?: {
+    sessionId: string;
+    intentId: string;
+    amount: number;
+    invoiceNumber: string;
+  };
 };
 
 export const SERVICE_SEEDS: ServiceSeed[] = [
@@ -459,6 +487,128 @@ export const SERVICE_SEEDS: ServiceSeed[] = [
     "availabilityNote": "Tomorrow, 9:00 AM",
     "reviews": []
   }
+];
+
+export const DEMO_BOOKING_SEEDS: DemoBookingSeed[] = [
+  {
+    id: "demo-booking:requested-ac",
+    bookingNumber: "FM-DEMO-1001",
+    customerEmail: "customer@fixmate.dev",
+    serviceSlug: "split-ac-deep-cleaning",
+    status: "requested",
+    preferredDate: "2026-11-24",
+    problem:
+      "The split AC is cooling weakly and the indoor unit is dripping water onto the wall.",
+    createdAt: "2026-11-20T09:15:00.000Z",
+  },
+  {
+    id: "demo-booking:accepted-macbook",
+    bookingNumber: "FM-DEMO-1002",
+    customerEmail: "tanvir@mail.com",
+    serviceSlug: "macbook-battery-service",
+    status: "accepted",
+    preferredDate: "2026-11-23",
+    problem:
+      "MacBook battery drains from 100% to 20% in under an hour and the trackpad is swelling.",
+    createdAt: "2026-11-19T11:20:00.000Z",
+    acceptedAt: "2026-11-19T14:05:00.000Z",
+  },
+  {
+    id: "demo-booking:in-progress-tv",
+    bookingNumber: "FM-DEMO-1003",
+    customerEmail: "customer@fixmate.dev",
+    serviceSlug: "smart-tv-backlight-panel-repair",
+    status: "in-progress",
+    preferredDate: "2026-11-21",
+    problem:
+      "The TV turns on but the screen stays dark. Sound works and the backlight flickers sometimes.",
+    createdAt: "2026-11-18T08:40:00.000Z",
+    acceptedAt: "2026-11-18T10:10:00.000Z",
+    startedAt: "2026-11-21T09:05:00.000Z",
+  },
+  {
+    id: "demo-booking:completed-unpaid-iphone",
+    bookingNumber: "FM-DEMO-1004",
+    customerEmail: "customer@fixmate.dev",
+    serviceSlug: "iphone-13-screen-replacement",
+    status: "completed",
+    preferredDate: "2026-11-16",
+    problem:
+      "The iPhone screen cracked after a drop and the touch stops responding near the top edge.",
+    createdAt: "2026-11-14T07:30:00.000Z",
+    acceptedAt: "2026-11-14T09:00:00.000Z",
+    startedAt: "2026-11-16T10:00:00.000Z",
+    completedAt: "2026-11-16T11:35:00.000Z",
+    finalAmount: 55,
+  },
+  {
+    id: "demo-booking:completed-paid-ac",
+    bookingNumber: "FM-DEMO-1005",
+    customerEmail: "customer@fixmate.dev",
+    serviceSlug: "ac-gas-refill-leak-test",
+    status: "completed",
+    preferredDate: "2026-11-10",
+    problem:
+      "The AC is running but not cooling. It needs a gas refill and a leak test before summer.",
+    createdAt: "2026-11-08T08:10:00.000Z",
+    acceptedAt: "2026-11-08T10:25:00.000Z",
+    startedAt: "2026-11-10T09:15:00.000Z",
+    completedAt: "2026-11-10T12:40:00.000Z",
+    paidAt: "2026-11-11T06:20:00.000Z",
+    finalAmount: 70,
+    payment: {
+      sessionId: "seed_session_ac_2026",
+      intentId: "seed_pi_ac_2026",
+      amount: 70,
+      invoiceNumber: "INV-FM-DEMO-1005",
+    },
+  },
+  {
+    id: "demo-booking:completed-paid-cctv",
+    bookingNumber: "FM-DEMO-1006",
+    customerEmail: "farhan@mail.com",
+    serviceSlug: "cctv-camera-setup",
+    status: "completed",
+    preferredDate: "2026-11-12",
+    problem:
+      "Need four CCTV cameras installed around the house with mobile access and night vision.",
+    createdAt: "2026-11-09T12:00:00.000Z",
+    acceptedAt: "2026-11-09T15:30:00.000Z",
+    startedAt: "2026-11-12T09:00:00.000Z",
+    completedAt: "2026-11-12T14:20:00.000Z",
+    paidAt: "2026-11-12T18:10:00.000Z",
+    finalAmount: 80,
+    payment: {
+      sessionId: "seed_session_cctv_2026",
+      intentId: "seed_pi_cctv_2026",
+      amount: 80,
+      invoiceNumber: "INV-FM-DEMO-1006",
+    },
+  },
+  {
+    id: "demo-booking:cancelled-washer",
+    bookingNumber: "FM-DEMO-1007",
+    customerEmail: "mehedi@mail.com",
+    serviceSlug: "washing-machine-drum-cleaning",
+    status: "cancelled",
+    preferredDate: "2026-11-15",
+    problem:
+      "The washing machine drum smells musty and leaves dark marks on clothes after every wash.",
+    createdAt: "2026-11-12T09:45:00.000Z",
+    cancelledAt: "2026-11-12T11:10:00.000Z",
+  },
+  {
+    id: "demo-booking:rejected-fridge",
+    bookingNumber: "FM-DEMO-1008",
+    customerEmail: "nusrat@mail.com",
+    serviceSlug: "refrigerator-cooling-repair",
+    status: "rejected",
+    preferredDate: "2026-11-17",
+    problem:
+      "The refrigerator freezer works but the lower compartment stays warm and the motor runs all day.",
+    createdAt: "2026-11-13T10:30:00.000Z",
+    rejectedAt: "2026-11-13T12:15:00.000Z",
+  },
 ];
 
 export const DEMO_USERS: DemoUserSeed[] = [

@@ -1,13 +1,31 @@
 import { randomUUID } from "node:crypto";
 import { auth } from "../src/auth.js";
 import { env } from "../src/config/env.js";
-import { reviews, services, technicianProfiles } from "../src/db/collections.js";
+import {
+  bookings,
+  payments,
+  reviews,
+  services,
+  technicianProfiles,
+} from "../src/db/collections.js";
 import { ensureIndexes } from "../src/db/indexes.js";
 import { mongoClient, mongoDb } from "../src/db/mongo.js";
-import { DEMO_USERS, SERVICE_SEEDS, type DemoUserSeed } from "./seed-data.js";
+import type {
+  BookingDocument,
+  BookingStatus,
+  BookingStatusEvent,
+  PaymentDocument,
+} from "../src/types/models.js";
+import {
+  DEMO_BOOKING_SEEDS,
+  DEMO_USERS,
+  SERVICE_SEEDS,
+  type DemoUserSeed,
+} from "./seed-data.js";
 
 const usersCollection = mongoDb.collection("user");
 const REVIEW_ID_PREFIX = "seed-review:";
+const DEMO_BOOKING_PREFIX = "demo-booking:";
 
 type SeededUser = {
   id: string;
@@ -20,6 +38,16 @@ function dateAtMidnight(value: string) {
 
   if (Number.isNaN(date.getTime())) {
     throw new Error(`Invalid seed date: ${value}`);
+  }
+
+  return date;
+}
+
+function dateTime(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid seed timestamp: ${value}`);
   }
 
   return date;
@@ -295,6 +323,212 @@ async function seedReviews(
   );
 }
 
+async function seedBookings(
+  seeds: DemoUserSeed[],
+  usersByEmail: Map<string, SeededUser>,
+) {
+  const serviceSlugs = [
+    ...new Set(DEMO_BOOKING_SEEDS.map((seed) => seed.serviceSlug)),
+  ];
+  const serviceDocs = await services
+    .find({ slug: { $in: serviceSlugs } })
+    .toArray();
+  const serviceBySlug = new Map(
+    serviceDocs.map((service) => [service.slug, service]),
+  );
+  const customerSeedsByEmail = new Map(
+    seeds
+      .filter((seed) => seed.role === "customer")
+      .map((seed) => [seed.email, seed]),
+  );
+
+  const activeIds = DEMO_BOOKING_SEEDS.map((seed) => seed.id);
+
+  await bookings.deleteMany({
+    $and: [
+      { _id: { $regex: `^${DEMO_BOOKING_PREFIX}` } },
+      { _id: { $nin: activeIds } },
+    ],
+  });
+  await payments.deleteMany({
+    $and: [
+      { bookingId: { $regex: `^${DEMO_BOOKING_PREFIX}` } },
+      { bookingId: { $nin: activeIds } },
+    ],
+  });
+
+  // Demo bookings intentionally stay unreviewed so the paid-booking review
+  // flow can still be tested from the customer dashboard.
+  await reviews.deleteMany({
+    bookingId: { $regex: `^${DEMO_BOOKING_PREFIX}` },
+  });
+  await payments.deleteMany({ bookingId: { $in: activeIds } });
+
+  let bookingCount = 0;
+  let paymentCount = 0;
+
+  for (const seed of DEMO_BOOKING_SEEDS) {
+    const service = serviceBySlug.get(seed.serviceSlug);
+
+    if (!service) {
+      throw new Error(`Missing service for demo booking: ${seed.serviceSlug}`);
+    }
+
+    const customerUser = usersByEmail.get(seed.customerEmail);
+
+    if (!customerUser) {
+      throw new Error(`Missing customer for demo booking: ${seed.customerEmail}`);
+    }
+
+    const customerSeed = customerSeedsByEmail.get(seed.customerEmail);
+    const technicianId = service.technicianId;
+    const createdAt = dateTime(seed.createdAt);
+    const finalAmount =
+      seed.status === "completed"
+        ? (seed.finalAmount ?? service.price)
+        : null;
+    const events: BookingStatusEvent[] = [
+      {
+        status: "requested",
+        at: createdAt,
+        by: customerUser.id,
+        note: "Booking requested",
+      },
+    ];
+
+    if (seed.acceptedAt) {
+      events.push({
+        status: "accepted",
+        at: dateTime(seed.acceptedAt),
+        by: technicianId,
+        note: "Request accepted by technician",
+      });
+    }
+
+    if (seed.startedAt) {
+      events.push({
+        status: "in-progress",
+        at: dateTime(seed.startedAt),
+        by: technicianId,
+        note: "Work started",
+      });
+    }
+
+    if (seed.completedAt) {
+      events.push({
+        status: "completed",
+        at: dateTime(seed.completedAt),
+        by: technicianId,
+        note: `Job completed · final amount $${finalAmount}`,
+      });
+    }
+
+    if (seed.cancelledAt) {
+      events.push({
+        status: "cancelled",
+        at: dateTime(seed.cancelledAt),
+        by: customerUser.id,
+        note: "Cancelled by customer",
+      });
+    }
+
+    if (seed.rejectedAt) {
+      events.push({
+        status: "rejected",
+        at: dateTime(seed.rejectedAt),
+        by: technicianId,
+        note: "Declined by technician",
+      });
+    }
+
+    const updatedAt = dateTime(
+      seed.paidAt ??
+        seed.completedAt ??
+        seed.cancelledAt ??
+        seed.rejectedAt ??
+        seed.startedAt ??
+        seed.acceptedAt ??
+        seed.createdAt,
+    );
+
+    const booking: BookingDocument = {
+      _id: seed.id,
+      bookingNumber: seed.bookingNumber,
+      customerId: customerUser.id,
+      technicianId,
+      serviceId: service._id,
+      serviceSlug: service.slug,
+      serviceTitle: service.title,
+      category: service.category,
+      mode: service.mode,
+      basePrice: service.price,
+      finalAmount,
+      preferredDate: seed.preferredDate,
+      phone: customerSeed?.phone || "+880 1700 000000",
+      address: `House 12, Road 4, ${customerSeed?.area || "Dhaka"}`,
+      problem: seed.problem,
+      status: seed.status,
+      paymentStatus: seed.payment ? "paid" : "unpaid",
+      statusHistory: events,
+      createdAt,
+      updatedAt,
+      ...(seed.acceptedAt
+        ? { acceptedAt: dateTime(seed.acceptedAt) }
+        : {}),
+      ...(seed.startedAt ? { startedAt: dateTime(seed.startedAt) } : {}),
+      ...(seed.completedAt
+        ? { completedAt: dateTime(seed.completedAt) }
+        : {}),
+      ...(seed.cancelledAt
+        ? { cancelledAt: dateTime(seed.cancelledAt) }
+        : {}),
+      ...(seed.rejectedAt
+        ? { rejectedAt: dateTime(seed.rejectedAt) }
+        : {}),
+    };
+
+    await bookings.updateOne(
+      { _id: seed.id },
+      { $set: booking },
+      { upsert: true },
+    );
+    bookingCount += 1;
+
+    if (seed.payment) {
+      const paidAt = dateTime(
+        seed.paidAt ?? seed.completedAt ?? seed.createdAt,
+      );
+      const payment: PaymentDocument = {
+        _id: seed.id.replace(DEMO_BOOKING_PREFIX, "demo-payment:"),
+        bookingId: seed.id,
+        customerId: customerUser.id,
+        technicianId,
+        amount: seed.payment.amount,
+        currency: "usd",
+        provider: "stripe",
+        providerSessionId: seed.payment.sessionId,
+        providerPaymentIntentId: seed.payment.intentId,
+        transactionId: seed.payment.intentId,
+        status: "paid",
+        paidAt,
+        invoiceNumber: seed.payment.invoiceNumber,
+        createdAt: paidAt,
+      };
+
+      await payments.updateOne(
+        { _id: payment._id },
+        { $set: payment },
+        { upsert: true },
+      );
+      paymentCount += 1;
+    }
+  }
+
+  console.log(
+    `Demo bookings: ${bookingCount} upserted, ${paymentCount} demo payments`,
+  );
+}
+
 async function report(
   seeds: DemoUserSeed[],
   usersByEmail: Map<string, SeededUser>,
@@ -308,12 +542,18 @@ async function report(
     .map((seed) => usersByEmail.get(seed.email)?.id)
     .filter((id): id is string => Boolean(id));
 
+  const demoBookingFilter = {
+    _id: { $regex: `^${DEMO_BOOKING_PREFIX}` },
+  };
   const [
     seededServices,
     publicServices,
     technicianUsers,
     profiles,
     seededReviews,
+    demoBookings,
+    demoPayments,
+    demoStatuses,
   ] = await Promise.all([
     services.countDocuments({ legacyId: { $in: legacyIds } }),
     services.countDocuments({
@@ -325,12 +565,18 @@ async function report(
     usersCollection.countDocuments({ email: { $in: technicianEmails } }),
     technicianProfiles.countDocuments({ userId: { $in: technicianIds } }),
     reviews.countDocuments({ bookingId: { $regex: `^${REVIEW_ID_PREFIX}` } }),
+    bookings.countDocuments(demoBookingFilter),
+    payments.countDocuments({
+      bookingId: { $regex: `^${DEMO_BOOKING_PREFIX}` },
+    }),
+    bookings.distinct("status", demoBookingFilter),
   ]);
 
   console.log(
     `Done: ${seededServices} services (${publicServices} public), ` +
       `${technicianUsers} technicians, ${profiles} profiles, ` +
-      `${seededReviews} seeded reviews`,
+      `${seededReviews} seeded reviews, ${demoBookings} demo bookings ` +
+      `(${demoStatuses.join(", ")}), ${demoPayments} demo payments`,
   );
 
   if (
@@ -340,6 +586,34 @@ async function report(
     profiles !== 3
   ) {
     throw new Error("Seed verification failed.");
+  }
+
+  const expectedDemoBookings = DEMO_BOOKING_SEEDS.length;
+  const expectedDemoPayments = DEMO_BOOKING_SEEDS.filter(
+    (seed) => seed.payment,
+  ).length;
+  const expectedStatuses: BookingStatus[] = [
+    "requested",
+    "accepted",
+    "in-progress",
+    "completed",
+    "cancelled",
+    "rejected",
+  ];
+  const missingStatuses = expectedStatuses.filter(
+    (status) => !demoStatuses.includes(status),
+  );
+
+  if (
+    demoBookings !== expectedDemoBookings ||
+    demoPayments !== expectedDemoPayments ||
+    missingStatuses.length > 0
+  ) {
+    throw new Error(
+      `Demo booking verification failed. Bookings ${demoBookings}/${expectedDemoBookings}, ` +
+        `payments ${demoPayments}/${expectedDemoPayments}, ` +
+        `missing statuses: ${missingStatuses.join(", ") || "none"}.`,
+    );
   }
 }
 
@@ -373,6 +647,7 @@ async function main() {
   await seedProfiles(seeds, usersByEmail);
   await seedServices(seeds, usersByEmail, admin.id);
   await seedReviews(seeds, usersByEmail);
+  await seedBookings(seeds, usersByEmail);
   await report(seeds, usersByEmail);
 
   console.log(
