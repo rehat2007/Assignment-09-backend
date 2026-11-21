@@ -88,6 +88,7 @@ Assignment step progress:
 | Step 3 — Toast notifications | Complete |
 | Step 5 — Service images and technician photos | Complete |
 | Step 6 — ImgBB upload driver | Complete |
+| Step 4 — Custom 404, error boundary, loading | Complete |
 | Step 15 — Deploy | Not started |
 | Step 17 — Phase 9 hardening/tests | Not started |
 
@@ -1454,17 +1455,17 @@ GOOGLE_CLIENT_SECRET=
 
 ## 12. Next action
 
-**Steps 1, 2, 3, 5, 6, and 10 are complete.** The next step is:
+**Steps 1, 2, 3, 4, 5, 6, and 10 are complete.** The next step is:
 
 1. **Step 15 — Deploy** if production credentials are ready.
-2. Otherwise **Step 4 — Custom 404, error boundary, and loading states**.
+2. Otherwise **Step 9 — Confirmation modals**.
 3. Then continue with the priority order.
 
 When asking for implementation, use one step at a time, for example:
 
 ```text
-Implement Step 4 from readme.md only. Do not start Step 9.
-Run backend/frontend checks, smoke-test the 404 and error pages, clean up test data,
+Implement Step 9 from readme.md only. Do not start Step 8.
+Run backend/frontend checks, smoke-test the confirmation dialogs, clean up test data,
 and update this readme with the result.
 ```
 
@@ -1694,3 +1695,34 @@ ImgBB response URL is returned and stored
 
 A real ImgBB upload still requires a valid `IMGBB_API_KEY`; the driver was
 verified with a mocked ImgBB response.
+
+### Step 4 — Custom 404, error boundary, and loading states — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Added `src/app/not-found.tsx`:
+  - Repair-themed Wrench/Search illustration.
+  - “This page needs a repair” message.
+  - Back to Home and Browse Services actions.
+- Added `src/app/error.tsx`:
+  - Client error boundary.
+  - Clear error message.
+  - `reset()` retry button and Back to Home link.
+  - Error digest shown when available.
+- Added `src/app/loading.tsx`:
+  - Public catalog skeleton with header, search, filter chips, and six cards.
+
+**Verified results:**
+
+```text
+/totally-unknown -> 404 with the custom “This page needs a repair” content
+/services/does-not-exist -> custom not-found content
+Frontend TypeScript -> pass
+Frontend ESLint -> pass
+Frontend production build -> pass
+```
+
+The error boundary compiles into the production build. A temporary throwing
+route was used to confirm the route is picked up, then removed before commit.
