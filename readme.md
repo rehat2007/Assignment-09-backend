@@ -85,6 +85,7 @@ Assignment step progress:
 | Step 10 — Seed realistic bookings and payments | Complete |
 | Step 2 — Payment success/cancel pages | Complete |
 | Step 1 — Repair request rules | Complete |
+| Step 3 — Toast notifications | Complete |
 | Step 15 — Deploy | Not started |
 | Step 17 — Phase 9 hardening/tests | Not started |
 
@@ -1451,17 +1452,17 @@ GOOGLE_CLIENT_SECRET=
 
 ## 12. Next action
 
-**Steps 1, 2, and 10 are complete.** The next step is:
+**Steps 1, 2, 3, and 10 are complete.** The next step is:
 
 1. **Step 15 — Deploy** if production credentials are ready.
-2. Otherwise **Step 3 — Toast notifications**.
+2. Otherwise **Steps 5 and 6 — Service images and ImgBB**.
 3. Then continue with the priority order.
 
 When asking for implementation, use one step at a time, for example:
 
 ```text
-Implement Step 3 from readme.md only. Do not start Step 4.
-Run backend/frontend checks, smoke-test the toasts, clean up test data,
+Implement Steps 5 and 6 from readme.md only. Do not start Step 4.
+Run backend/frontend checks, smoke-test the image flow, clean up test data,
 and update this readme with the result.
 ```
 
@@ -1591,3 +1592,36 @@ Valid new request -> 201 requested / unpaid
 
 The valid test booking was deleted after verification. The demo seed data was
 restored with `npm run seed`.
+
+### Step 3 — Toast notifications — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Installed `sonner` in the frontend.
+- Mounted `<Toaster richColors position="top-right" closeButton />` in the root
+  layout.
+- Added success/error toasts to:
+  - Sign up, sign in, and sign out.
+  - Repair request creation and duplicate/invalid errors.
+  - Cancel booking, checkout errors, and review submission.
+  - Profile update and avatar upload errors.
+  - Service create, edit, delete, and availability changes.
+  - Technician accept/reject/start/complete actions.
+  - Admin role changes, suspension/restoration, and service approval/rejection.
+  - Payment success page mount.
+- Removed duplicate inline success notices where the action now uses a toast.
+- Kept field-level inline validation for form errors.
+
+**Verified results:**
+
+```text
+Frontend TypeScript: pass
+Frontend ESLint: pass
+Toast provider mounted once in the root layout
+Success and error paths call toast.success/toast.error
+Payment success page shows a toast after verification
+```
+
+Frontend build was run after the toast integration.
