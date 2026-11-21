@@ -12,6 +12,7 @@ import {
   verifyTechnician,
   verifyToken,
 } from "../middleware/jwt-auth.js";
+import { bookingLimiter } from "../middleware/rate-limit.js";
 import {
   getValidatedBody,
   getValidatedParams,
@@ -190,6 +191,7 @@ compatRouter.get(
 /* Customer bookings */
 compatRouter.post(
   "/bookings",
+  bookingLimiter,
   ...verifyCustomer,
   validateBody(createBookingSchema),
   async (request, response) => {

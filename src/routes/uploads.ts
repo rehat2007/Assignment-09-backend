@@ -10,6 +10,7 @@ import {
   verifyTechnician,
   verifyToken,
 } from "../middleware/jwt-auth.js";
+import { uploadLimiter } from "../middleware/rate-limit.js";
 
 const IMAGE_TYPES = {
   "image/jpeg": "jpg",
@@ -175,6 +176,7 @@ export const uploadsRouter = Router();
 
 uploadsRouter.post(
   "/avatar",
+  uploadLimiter,
   verifyToken,
   singleImage(AVATAR_MAX_BYTES, "2 MB"),
   uploadHandler("avatars", AVATAR_MAX_BYTES, "2 MB"),
@@ -182,6 +184,7 @@ uploadsRouter.post(
 
 uploadsRouter.post(
   "/service-cover",
+  uploadLimiter,
   ...verifyTechnician,
   singleImage(SERVICE_COVER_MAX_BYTES, "5 MB"),
   uploadHandler("service-covers", SERVICE_COVER_MAX_BYTES, "5 MB"),

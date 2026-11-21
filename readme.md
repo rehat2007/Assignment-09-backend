@@ -96,6 +96,7 @@ Assignment step progress:
 | Step 12 — Schema compatibility migration | Complete |
 | Step 13 — Exact API compatibility aliases | Complete |
 | Step 14 — Submission README and credentials | Complete |
+| Step 17 — Phase 9 hardening and smoke tests | Complete |
 | Step 15 — Deploy | Not started |
 | Step 17 — Phase 9 hardening/tests | Not started |
 
@@ -1276,6 +1277,8 @@ cd C:\web_dev\fix_mate\fix_mate_back_end
 npm run typecheck
 npm run build
 npm run seed
+npm run migrate:schema
+npm run test:smoke
 ```
 
 ### Frontend
@@ -1462,20 +1465,18 @@ GOOGLE_CLIENT_SECRET=
 
 ## 12. Next action
 
-**Steps 1–14 are complete** (with Step 12 implemented as a compatibility
-migration). The next step is:
+**Steps 1–14 and Step 17 are complete.** The only remaining work is deployment:
 
-1. **Step 15 — Deploy** if production credentials are ready.
-2. Otherwise **Step 17 — Phase 9 hardening and tests**.
-3. Fill the live URL and admin password in the submission README after
+1. **Step 15 — Deploy** when production credentials are ready.
+2. Fill the live URL and admin password in the submission README after
    deployment.
+3. Run the production acceptance checklist.
 
-When asking for implementation, use one step at a time, for example:
+When asking for deployment help, use:
 
 ```text
-Implement Step 17 from readme.md only. Do not deploy.
-Run backend/frontend checks, add the hardening/tests, clean up test data,
-and update this readme with the result.
+Help me deploy from readme.md. Do not change application behavior unless a
+deployment error requires a fix.
 ```
 
 ---
@@ -2075,3 +2076,65 @@ Backend plan includes the submission step and credential notes.
 Admin password is not committed.
 Live URL remains a marked placeholder until deployment.
 ```
+
+### Step 17 — Phase 9 hardening and smoke tests — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Added `express-rate-limit`.
+- Added `src/middleware/rate-limit.ts`:
+  - Auth: 40 requests / 15 minutes per IP.
+  - Booking creation: 12 requests / minute per IP.
+  - Uploads: 20 requests / minute per IP.
+  - Returns the standard `429 RATE_LIMITED` error envelope.
+- Applied the auth limiter before the Better Auth handler.
+- Applied the booking limiter to:
+  - `POST /api/v1/bookings`
+  - `POST /api/bookings` compatibility alias
+- Applied the upload limiter to:
+  - `POST /api/v1/uploads/avatar`
+  - `POST /api/v1/uploads/service-cover`
+- Enabled `trust proxy` in production for correct client IPs.
+- Added `scripts/hardening-smoke.ts` and `npm run test:smoke`.
+- Added `npm run migrate:schema` for the compatibility migration.
+
+**Hardening audit status:**
+
+```text
+Zod validation: present on API bodies/queries/params.
+Object ownership: bookings, services, payments, reviews, and uploads checked.
+Pagination: public, customer, technician, admin, reviews, and compatibility lists.
+Regex search: escaped in catalog, admin users, admin bookings, and admin services.
+Request IDs + structured logs: requestContext + logger.
+Admin audit logging: writeAuditLog.
+Conditional state transitions: findOneAndUpdate with current status filters.
+Unique indexes: booking number, payment booking/session/intent, review booking, service slug, user profile.
+```
+
+**Permanent smoke test verified:**
+
+```text
+No auth on admin route -> 401
+Customer on admin route -> 403
+IDOR: another customer cancelling a booking -> 404
+Complete before accept -> 409
+requested -> accepted -> in-progress -> completed -> 200
+Stripe verification replay -> exactly one payment
+Approve a service, then edit it -> approval returns to pending
+Promote customer -> admin -> 200
+Demote admin -> customer -> 200
+Cleanup of test booking, payment, service, role, and sessions
+```
+
+Run it with:
+
+```powershell
+cd C:\web_dev\fix_mate\fix_mate_back_end
+npm run test:smoke
+```
+
+Rate-limit counters were not deliberately exhausted during the smoke test to
+avoid locking the local demo for 15 minutes. The middleware is applied and
+typechecked; production should be verified with a staging request burst.

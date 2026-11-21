@@ -10,6 +10,7 @@ import { HTTP_STATUS } from "./http/status.js";
 import { logger } from "./lib/logger.js";
 import { localUploadDirectory } from "./lib/storage.js";
 import { errorHandler, notFoundHandler } from "./middleware/errors.js";
+import { authLimiter } from "./middleware/rate-limit.js";
 import { requestContext } from "./middleware/request-context.js";
 import { authTokenRouter } from "./routes/auth-token.js";
 import { catalogRouter } from "./routes/catalog.js";
@@ -26,6 +27,10 @@ import { uploadsRouter, avatarDirectory } from "./routes/uploads.js";
 const app = express();
 
 app.disable("x-powered-by");
+
+if (env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
 
 app.use(requestContext);
 
@@ -57,6 +62,7 @@ app.use(
 
 // Better Auth MUST be mounted before express.json().
 // Express 5 uses *splat; Express 4 uses *.
+app.use("/api/auth", authLimiter);
 app.all("/api/auth/*splat", toNodeHandler(auth));
 
 // Stripe webhook must receive the raw body. Mount it before express.json().

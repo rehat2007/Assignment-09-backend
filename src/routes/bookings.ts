@@ -5,6 +5,7 @@ import {
   verifyCustomer,
   verifyToken,
 } from "../middleware/jwt-auth.js";
+import { bookingLimiter } from "../middleware/rate-limit.js";
 import {
   getValidatedBody,
   getValidatedParams,
@@ -42,6 +43,7 @@ export const bookingsRouter = Router();
 
 bookingsRouter.post(
   "/",
+  bookingLimiter,
   ...verifyCustomer,
   validateBody(createBookingSchema),
   async (request, response) => {
