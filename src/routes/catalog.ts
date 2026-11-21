@@ -63,7 +63,9 @@ catalogRouter.get(
 
     response.setHeader("Cache-Control", PUBLIC_CACHE_CONTROL);
     response.json(
-      paginated(result.items, result.page, result.pageSize, result.total),
+      paginated(result.items, result.page, result.pageSize, result.total, {
+        distribution: result.distribution,
+      }),
     );
   },
 );

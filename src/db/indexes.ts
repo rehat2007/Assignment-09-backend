@@ -54,6 +54,10 @@ export async function ensureIndexes() {
     reviews.createIndexes([
       { key: { bookingId: 1 }, unique: true, name: "booking_unique" },
       { key: { serviceId: 1, createdAt: -1 }, name: "service_created" },
+      {
+        key: { serviceId: 1, visible: 1, createdAt: -1 },
+        name: "service_visible_created",
+      },
     ]),
     technicianProfiles.createIndexes([
       { key: { userId: 1 }, unique: true, name: "user_unique" },

@@ -49,6 +49,7 @@ export function paginated<T>(
   page: number,
   pageSize: number,
   total: number,
+  extraMeta: ApiMeta = {},
 ): ApiSuccess<T[]> {
-  return ok(items, paginationMeta(page, pageSize, total));
+  return ok(items, { ...paginationMeta(page, pageSize, total), ...extraMeta });
 }

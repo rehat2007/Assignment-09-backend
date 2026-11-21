@@ -99,6 +99,7 @@ export type ListReviewsResult = {
   pageSize: number;
   total: number;
   totalPages: number;
+  distribution: number[];
 };
 
 const PUBLIC_SERVICE_FILTER: Filter<ServiceDocument> = {
@@ -303,6 +304,25 @@ export async function listServiceReviews(
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(page, totalPages);
 
+  const ratingRows = await reviews
+    .aggregate<{ _id: number; count: number }>([
+      { $match: filter },
+      { $group: { _id: "$rating", count: { $sum: 1 } } },
+    ])
+    .toArray();
+  const ratingCounts = new Map(
+    ratingRows.map((row) => [row._id, row.count]),
+  );
+  const totalReviews = ratingRows.reduce(
+    (sum, row) => sum + row.count,
+    0,
+  );
+  const distribution = [5, 4, 3, 2, 1].map((rating) =>
+    totalReviews > 0
+      ? Math.round(((ratingCounts.get(rating) ?? 0) / totalReviews) * 100)
+      : 0,
+  );
+
   const docs = await reviews
     .find(filter)
     .sort({ createdAt: -1 })
@@ -346,5 +366,6 @@ export async function listServiceReviews(
     pageSize,
     total,
     totalPages,
+    distribution,
   };
 }

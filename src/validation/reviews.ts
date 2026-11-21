@@ -12,6 +12,7 @@ export const reviewListQuerySchema = z.object({
 });
 
 export type ReviewListQuery = z.infer<typeof reviewListQuerySchema>;
+export type CreateReviewInput = z.infer<typeof createReviewSchema>;
 
 export const meReviewsQuerySchema = z.object({
   ...paginationFields(PAGE_SIZES.dashboard),

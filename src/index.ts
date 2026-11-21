@@ -8,6 +8,7 @@ import { mongoClient, mongoDb } from "./db/mongo.js";
 import { fail, ok } from "./http/response.js";
 import { HTTP_STATUS } from "./http/status.js";
 import { logger } from "./lib/logger.js";
+import { localUploadDirectory } from "./lib/storage.js";
 import { errorHandler, notFoundHandler } from "./middleware/errors.js";
 import { requestContext } from "./middleware/request-context.js";
 import { catalogRouter } from "./routes/catalog.js";
@@ -97,6 +98,18 @@ app.use("/api/v1/payments", paymentsRouter);
 app.use("/api/v1/technician", technicianRouter);
 app.use("/api/v1/admin", adminRouter);
 
+// New uploads: local development driver or S3-compatible object storage.
+app.use(
+  "/api/v1/uploads/files",
+  express.static(localUploadDirectory, {
+    fallthrough: true,
+    index: false,
+    immutable: true,
+    maxAge: "1y",
+  }),
+);
+
+// Legacy local avatar files uploaded before Phase 8. New avatars never land here.
 app.use(
   "/api/v1/uploads/avatars",
   express.static(avatarDirectory, {

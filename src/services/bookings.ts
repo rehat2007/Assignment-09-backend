@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { ObjectId } from "mongodb";
-import { bookings, payments, services } from "../db/collections.js";
+import { bookings, payments, reviews, services } from "../db/collections.js";
 import { mongoDb } from "../db/mongo.js";
 import { ApiError } from "../http/api-error.js";
 import { buildSpendSeries } from "../lib/spend-series.js";
@@ -25,6 +25,7 @@ export type CustomerBookingDto = {
   finalAmount: number | null;
   status: BookingStatus;
   paymentStatus: PaymentStatus;
+  reviewed: boolean;
   updatedAt: string;
   createdAt: string;
   phone: string;
@@ -146,6 +147,7 @@ function technicianNameFor(
 function toCustomerBooking(
   booking: BookingDocument,
   technician: string,
+  reviewed: boolean,
 ): CustomerBookingDto {
   return {
     id: booking._id,
@@ -160,6 +162,7 @@ function toCustomerBooking(
     finalAmount: booking.finalAmount,
     status: booking.status,
     paymentStatus: booking.paymentStatus,
+    reviewed,
     updatedAt: dateOnly(booking.updatedAt),
     createdAt: dateOnly(booking.createdAt),
     phone: booking.phone,
@@ -171,9 +174,10 @@ function toCustomerBooking(
 function toCustomerBookingDetail(
   booking: BookingDocument,
   technician: string,
+  reviewed: boolean,
 ): CustomerBookingDetailDto {
   return {
-    ...toCustomerBooking(booking, technician),
+    ...toCustomerBooking(booking, technician, reviewed),
     statusHistory: booking.statusHistory.map((entry) => ({
       status: entry.status,
       at: entry.at.toISOString(),
@@ -181,6 +185,21 @@ function toCustomerBookingDetail(
       ...(entry.note ? { note: entry.note } : {}),
     })),
   };
+}
+
+async function loadReviewedBookingIds(bookingIds: string[]) {
+  if (bookingIds.length === 0) {
+    return new Set<string>();
+  }
+
+  const docs = await reviews
+    .find(
+      { bookingId: { $in: bookingIds } },
+      { projection: { bookingId: 1 } },
+    )
+    .toArray();
+
+  return new Set(docs.map((review) => review.bookingId));
 }
 
 export async function createBooking(
@@ -260,7 +279,7 @@ export async function createBooking(
     throw new Error("Could not allocate a unique booking number.");
   }
 
-  return toCustomerBooking(booking, service.technicianName);
+  return toCustomerBooking(booking, service.technicianName, false);
 }
 
 export async function listCustomerBookings(
@@ -283,15 +302,17 @@ export async function listCustomerBookings(
     .limit(options.pageSize)
     .toArray();
 
-  const names = await loadTechnicianNames(
-    docs.map((booking) => booking.technicianId),
-  );
+  const [names, reviewedIds] = await Promise.all([
+    loadTechnicianNames(docs.map((booking) => booking.technicianId)),
+    loadReviewedBookingIds(docs.map((booking) => booking._id)),
+  ]);
 
   return {
     items: docs.map((booking) =>
       toCustomerBooking(
         booking,
         technicianNameFor(names, booking.technicianId),
+        reviewedIds.has(booking._id),
       ),
     ),
     page,
@@ -312,11 +333,15 @@ export async function getBookingForUser(
     throw ApiError.notFound("Booking not found.");
   }
 
-  const names = await loadTechnicianNames([booking.technicianId]);
+  const [names, reviewed] = await Promise.all([
+    loadTechnicianNames([booking.technicianId]),
+    reviews.countDocuments({ bookingId: booking._id }, { limit: 1 }),
+  ]);
 
   return toCustomerBookingDetail(
     booking,
     technicianNameFor(names, booking.technicianId),
+    reviewed > 0,
   );
 }
 
@@ -347,11 +372,15 @@ export async function cancelBooking(
   );
 
   if (updated) {
-    const names = await loadTechnicianNames([updated.technicianId]);
+    const [names, reviewed] = await Promise.all([
+      loadTechnicianNames([updated.technicianId]),
+      reviews.countDocuments({ bookingId: updated._id }, { limit: 1 }),
+    ]);
 
     return toCustomerBooking(
       updated,
       technicianNameFor(names, updated.technicianId),
+      reviewed > 0,
     );
   }
 
@@ -408,7 +437,10 @@ export async function getCustomerOverview(
     ...(active ? [active.technicianId] : []),
     ...recentDocs.map((booking) => booking.technicianId),
   ];
-  const names = await loadTechnicianNames(technicianIds);
+  const [names, reviewedIds] = await Promise.all([
+    loadTechnicianNames(technicianIds),
+    loadReviewedBookingIds(customerBookings.map((booking) => booking._id)),
+  ]);
 
   return {
     stats: {
@@ -424,12 +456,14 @@ export async function getCustomerOverview(
       ? toCustomerBooking(
           active,
           technicianNameFor(names, active.technicianId),
+          reviewedIds.has(active._id),
         )
       : null,
     recent: recentDocs.map((booking) =>
       toCustomerBooking(
         booking,
         technicianNameFor(names, booking.technicianId),
+        reviewedIds.has(booking._id),
       ),
     ),
     spend: buildSpendSeries(paidPayments),

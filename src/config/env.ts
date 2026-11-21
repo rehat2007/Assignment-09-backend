@@ -7,6 +7,12 @@ const optionalString = z.preprocess(
   z.string().optional(),
 );
 
+const optionalUrl = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value,
+  z.string().url().optional(),
+);
+
 const origin = z
   .string()
   .min(1)
@@ -33,6 +39,43 @@ const schema = z.object({
   SEED_PASSWORD: z.string().min(8).default("FixMateDemo123!"),
   STRIPE_SECRET_KEY: optionalString,
   STRIPE_WEBHOOK_SECRET: optionalString,
+  UPLOAD_DRIVER: z.enum(["local", "s3"]).default("local"),
+  S3_BUCKET: optionalString,
+  S3_REGION: optionalString,
+  S3_ACCESS_KEY_ID: optionalString,
+  S3_SECRET_ACCESS_KEY: optionalString,
+  S3_ENDPOINT: optionalUrl,
+  S3_PUBLIC_URL: optionalUrl,
+  S3_FORCE_PATH_STYLE: z.enum(["true", "false"]).optional(),
+}).superRefine((value, context) => {
+  if (value.UPLOAD_DRIVER !== "s3") {
+    return;
+  }
+
+  if (!value.S3_BUCKET) {
+    context.addIssue({
+      code: "custom",
+      path: ["S3_BUCKET"],
+      message: "S3_BUCKET is required when UPLOAD_DRIVER=s3.",
+    });
+  }
+
+  if (!value.S3_REGION) {
+    context.addIssue({
+      code: "custom",
+      path: ["S3_REGION"],
+      message: "S3_REGION is required when UPLOAD_DRIVER=s3.",
+    });
+  }
+
+  if (Boolean(value.S3_ACCESS_KEY_ID) !== Boolean(value.S3_SECRET_ACCESS_KEY)) {
+    context.addIssue({
+      code: "custom",
+      path: ["S3_ACCESS_KEY_ID"],
+      message:
+        "Set both S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY, or leave both blank to use the default AWS credential chain.",
+    });
+  }
 });
 
 const parsed = schema.safeParse(process.env);

@@ -17,6 +17,7 @@ import {
   listCustomerBookings,
 } from "../services/bookings.js";
 import { createCheckoutSession } from "../services/payments.js";
+import { createReview } from "../services/reviews.js";
 import {
   bookingIdParamsSchema,
   bookingListQuerySchema,
@@ -25,6 +26,10 @@ import {
   type BookingListQuery,
   type CreateBookingInput,
 } from "../validation/bookings.js";
+import {
+  createReviewSchema,
+  type CreateReviewInput,
+} from "../validation/reviews.js";
 
 function noStore(response: Response) {
   response.setHeader("Cache-Control", "no-store");
@@ -107,5 +112,24 @@ bookingsRouter.post(
 
     noStore(response);
     response.json(ok(checkout));
+  },
+);
+
+bookingsRouter.post(
+  "/:id/review",
+  ...requireRole(["customer"]),
+  validateParams(bookingIdParamsSchema),
+  validateBody(createReviewSchema),
+  async (request, response) => {
+    const { id } = getValidatedParams<BookingIdParams>(request);
+    const input = getValidatedBody<CreateReviewInput>(request);
+    const review = await createReview(
+      request.session!.user.id,
+      id,
+      input,
+    );
+
+    noStore(response);
+    response.status(HTTP_STATUS.CREATED).json(ok(review));
   },
 );
