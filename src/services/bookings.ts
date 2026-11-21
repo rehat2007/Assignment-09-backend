@@ -18,6 +18,7 @@ export type CustomerBookingDto = {
   serviceId: string;
   serviceSlug: string;
   title: string;
+  serviceImage: string | null;
   category: ServiceCategory;
   technician: string;
   preferredDate: string;
@@ -155,6 +156,7 @@ function toCustomerBooking(
     serviceId: booking.serviceId,
     serviceSlug: booking.serviceSlug,
     title: booking.serviceTitle,
+    serviceImage: booking.serviceImage ?? null,
     category: booking.category,
     technician,
     preferredDate: booking.preferredDate,
@@ -249,6 +251,7 @@ export async function createBooking(
     serviceId: service._id,
     serviceSlug: service.slug,
     serviceTitle: service.title,
+    serviceImage: service.coverImage,
     category: service.category,
     mode: service.mode,
     basePrice: service.price,

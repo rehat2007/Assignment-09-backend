@@ -459,6 +459,7 @@ async function seedBookings(
       serviceId: service._id,
       serviceSlug: service.slug,
       serviceTitle: service.title,
+      serviceImage: service.coverImage,
       category: service.category,
       mode: service.mode,
       basePrice: service.price,

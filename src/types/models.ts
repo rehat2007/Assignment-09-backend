@@ -74,6 +74,7 @@ export type BookingDocument = {
   serviceId: string;
   serviceSlug: string;
   serviceTitle: string;
+  serviceImage: string | null;
   category: ServiceCategory;
   mode: ServiceMode;
   basePrice: number;

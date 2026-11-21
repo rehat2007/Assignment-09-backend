@@ -48,6 +48,7 @@ export type TechnicianRequestDto = {
   serviceId: string;
   serviceSlug: string;
   serviceTitle: string;
+  serviceImage: string | null;
   category: ServiceCategory;
   customer: string;
   phone: string | null;
@@ -238,6 +239,7 @@ function toTechnicianRequest(
     serviceId: booking.serviceId,
     serviceSlug: booking.serviceSlug,
     serviceTitle: booking.serviceTitle,
+    serviceImage: booking.serviceImage ?? null,
     category: booking.category,
     customer,
     phone: revealContact ? booking.phone : null,
