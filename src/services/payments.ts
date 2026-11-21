@@ -244,8 +244,8 @@ export async function createCheckoutSession(
           technicianId: booking.technicianId,
         },
       },
-      success_url: `${env.FRONTEND_URL}/dashboard/customer/bookings`,
-      cancel_url: `${env.FRONTEND_URL}/dashboard/customer/bookings`,
+      success_url: `${env.FRONTEND_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${env.FRONTEND_URL}/payment/cancel?booking_id=${booking._id}`,
     });
 
     if (!session.url) {
@@ -353,6 +353,120 @@ async function recordStripePayment(input: {
         updatedAt: new Date(),
       },
     },
+  );
+}
+
+export async function verifyCheckoutSession(
+  customerId: string,
+  sessionId: string,
+): Promise<CustomerPaymentDto> {
+  if (!stripe) {
+    throw new ApiError(
+      HTTP_STATUS.SERVICE_UNAVAILABLE,
+      "PAYMENTS_NOT_CONFIGURED",
+      "Stripe is not configured.",
+    );
+  }
+
+  let session: Stripe.Checkout.Session;
+
+  try {
+    session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["payment_intent"],
+    });
+  } catch (error) {
+    logger.warn("stripe_verify_session_failed", {
+      sessionId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    throw ApiError.notFound("Payment session not found.");
+  }
+
+  if (session.payment_status !== "paid") {
+    throw ApiError.conflict(
+      "Payment has not been completed.",
+      "PAYMENT_NOT_COMPLETED",
+    );
+  }
+
+  const bookingId =
+    session.metadata?.bookingId ?? session.client_reference_id ?? "";
+
+  if (!bookingId) {
+    throw ApiError.notFound("Booking not found.");
+  }
+
+  const booking = await bookings.findOne({ _id: bookingId });
+
+  if (!booking || booking.customerId !== customerId) {
+    throw ApiError.notFound("Booking not found.");
+  }
+
+  if (booking.status !== "completed" || !booking.finalAmount) {
+    throw ApiError.conflict(
+      "This booking cannot be paid.",
+      "INVALID_STATE",
+    );
+  }
+
+  const expectedCents = Math.round(booking.finalAmount * 100);
+  const amountCents = session.amount_total ?? 0;
+
+  if (
+    amountCents !== expectedCents ||
+    (session.currency ?? "usd") !== "usd"
+  ) {
+    logger.error("stripe_verify_amount_mismatch", {
+      sessionId,
+      bookingId,
+      expectedCents,
+      amountCents,
+      currency: session.currency,
+    });
+
+    throw ApiError.conflict(
+      "The payment amount does not match this booking.",
+      "AMOUNT_MISMATCH",
+    );
+  }
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id;
+
+  await recordStripePayment({
+    booking,
+    providerSessionId: session.id,
+    ...(paymentIntentId
+      ? { providerPaymentIntentId: paymentIntentId }
+      : {}),
+    amountCents,
+    paidAt: new Date(
+      (session.created ?? Math.floor(Date.now() / 1000)) * 1000,
+    ),
+    transactionId: paymentIntentId ?? session.id,
+  });
+
+  const payment = await payments.findOne({ bookingId });
+
+  if (!payment) {
+    throw new ApiError(
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      "PAYMENT_NOT_RECORDED",
+      "The payment could not be recorded.",
+    );
+  }
+
+  const technicianNames = await loadTechnicianNames([
+    payment.technicianId,
+  ]);
+
+  return toCustomerPayment(
+    payment,
+    booking,
+    technicianNames.get(payment.technicianId) ?? "FixMate technician",
   );
 }
 

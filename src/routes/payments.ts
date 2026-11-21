@@ -1,14 +1,21 @@
 import { Router, type Response } from "express";
 import { ok } from "../http/response.js";
-import { requireUser } from "../middleware/auth.js";
+import { requireRole, requireUser } from "../middleware/auth.js";
 import {
   getValidatedParams,
+  getValidatedQuery,
   validateParams,
+  validateQuery,
 } from "../middleware/validate.js";
-import { getPaymentForUser } from "../services/payments.js";
+import {
+  getPaymentForUser,
+  verifyCheckoutSession,
+} from "../services/payments.js";
 import {
   paymentIdParamsSchema,
+  paymentVerifyQuerySchema,
   type PaymentIdParams,
+  type PaymentVerifyQuery,
 } from "../validation/payments.js";
 
 function noStore(response: Response) {
@@ -16,6 +23,23 @@ function noStore(response: Response) {
 }
 
 export const paymentsRouter = Router();
+
+paymentsRouter.get(
+  "/verify",
+  ...requireRole(["customer"]),
+  validateQuery(paymentVerifyQuerySchema),
+  async (request, response) => {
+    const { session_id: sessionId } =
+      getValidatedQuery<PaymentVerifyQuery>(request);
+    const payment = await verifyCheckoutSession(
+      request.session!.user.id,
+      sessionId,
+    );
+
+    noStore(response);
+    response.json(ok(payment));
+  },
+);
 
 paymentsRouter.get(
   "/:id",

@@ -83,6 +83,7 @@ Assignment step progress:
 | Step | Status |
 |---|---|
 | Step 10 — Seed realistic bookings and payments | Complete |
+| Step 2 — Payment success/cancel pages | Complete |
 | Step 15 — Deploy | Not started |
 | Step 17 — Phase 9 hardening/tests | Not started |
 
@@ -1449,18 +1450,17 @@ GOOGLE_CLIENT_SECRET=
 
 ## 12. Next action
 
-**Step 10 is complete.** The next step is:
+**Step 10 and Step 2 are complete.** The next step is:
 
 1. **Step 15 — Deploy** if production credentials are ready.
-2. Otherwise **Step 2 — Payment success/cancel pages**.
-3. Then **Step 1 — Request-flow rules**.
-4. Then continue with the priority order.
+2. Otherwise **Step 1 — Request-flow rules**.
+3. Then continue with the priority order.
 
 When asking for implementation, use one step at a time, for example:
 
 ```text
-Implement Step 2 from readme.md only. Do not start Step 3.
-Run backend/frontend checks, smoke-test the payment flow, clean up test data,
+Implement Step 1 from readme.md only. Do not start Step 3.
+Run backend/frontend checks, smoke-test the request rules, clean up test data,
 and update this readme with the result.
 ```
 
@@ -1509,3 +1509,53 @@ Customer bookings UI: Pay now, Invoice, and Leave a review all visible
 **Note:** Four non-seed accounts were already present from manual testing and
 were left untouched. They make the admin user count 16 instead of the 12 seeded
 accounts.
+
+### Step 2 — Payment success and cancel pages — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Added `GET /api/v1/payments/verify?session_id=...` for customer-only
+  verification.
+- Refactored the idempotent Stripe payment recorder so the webhook and the
+  success-page verification share the same code path.
+- Verify flow checks:
+  - Stripe session exists.
+  - `payment_status === "paid"`.
+  - Booking belongs to the signed-in customer.
+  - Booking is `completed`.
+  - Amount and currency match the server-side `finalAmount`.
+  - Payment is inserted once per booking.
+  - Booking is marked paid only after verification.
+- Updated Stripe Checkout URLs:
+  - Success: `/payment/success?session_id={CHECKOUT_SESSION_ID}`
+  - Cancel: `/payment/cancel?booking_id=...`
+- Added `src/app/payment/success/page.tsx`:
+  - Verifies the session.
+  - Shows amount, transaction ID, service, technician, and paid date.
+  - Provides links to My Bookings and Payment History.
+  - Handles missing/invalid sessions gracefully.
+- Added `src/app/payment/cancel/page.tsx`:
+  - Confirms nothing was charged.
+  - Links back to My Bookings to try again.
+- Added `getPaymentVerification()` to the frontend customer API.
+
+**Verified results:**
+
+```text
+401 unauthenticated verify request
+422 missing session_id
+404 unknown Stripe session
+404 when another customer owns the booking
+200 verify success; payment amount $55; booking marked paid
+Replay returns the same payment; exactly one payment row
+Checkout success URL contains /payment/success?session_id=...
+Checkout cancel URL contains /payment/cancel?booking_id=...
+/payment/success returns 200 with an error state for an unknown session
+/payment/success without session_id returns 200 with a clear error
+/payment/cancel returns 200 with the cancellation message
+```
+
+Test payment/session data and checkout session were cleaned up. The demo
+completed-unpaid booking was restored to unpaid.
