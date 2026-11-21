@@ -59,6 +59,47 @@ function publicUrlFor(key: string) {
   return `https://${env.S3_BUCKET}.s3.${env.S3_REGION}.amazonaws.com/${key}`;
 }
 
+async function uploadToImgbb(input: PutImageInput) {
+  if (!env.IMGBB_API_KEY) {
+    throw new Error("IMGBB_API_KEY is not configured.");
+  }
+
+  const body = new URLSearchParams();
+  body.set("image", input.body.toString("base64"));
+
+  const response = await fetch(
+    `https://api.imgbb.com/1/upload?key=${encodeURIComponent(env.IMGBB_API_KEY)}`,
+    {
+      method: "POST",
+      body,
+    },
+  );
+  const payload = (await response.json().catch(() => null)) as
+    | {
+        success?: boolean;
+        data?: {
+          url?: string;
+          display_url?: string;
+          image?: { url?: string };
+        };
+        error?: { message?: string };
+      }
+    | null;
+
+  const url =
+    payload?.data?.url ??
+    payload?.data?.image?.url ??
+    payload?.data?.display_url;
+
+  if (!response.ok || !payload?.success || !url) {
+    throw new Error(
+      payload?.error?.message ?? "ImgBB did not accept the image.",
+    );
+  }
+
+  return url;
+}
+
 function assertSafeKey(key: string) {
   if (
     !key ||
@@ -72,6 +113,10 @@ function assertSafeKey(key: string) {
 
 export async function putImage(input: PutImageInput) {
   assertSafeKey(input.key);
+
+  if (env.UPLOAD_DRIVER === "imgbb") {
+    return uploadToImgbb(input);
+  }
 
   if (env.UPLOAD_DRIVER === "s3") {
     if (!env.S3_BUCKET) {

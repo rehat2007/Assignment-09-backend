@@ -86,6 +86,8 @@ Assignment step progress:
 | Step 2 — Payment success/cancel pages | Complete |
 | Step 1 — Repair request rules | Complete |
 | Step 3 — Toast notifications | Complete |
+| Step 5 — Service images and technician photos | Complete |
+| Step 6 — ImgBB upload driver | Complete |
 | Step 15 — Deploy | Not started |
 | Step 17 — Phase 9 hardening/tests | Not started |
 
@@ -1452,17 +1454,17 @@ GOOGLE_CLIENT_SECRET=
 
 ## 12. Next action
 
-**Steps 1, 2, 3, and 10 are complete.** The next step is:
+**Steps 1, 2, 3, 5, 6, and 10 are complete.** The next step is:
 
 1. **Step 15 — Deploy** if production credentials are ready.
-2. Otherwise **Steps 5 and 6 — Service images and ImgBB**.
+2. Otherwise **Step 4 — Custom 404, error boundary, and loading states**.
 3. Then continue with the priority order.
 
 When asking for implementation, use one step at a time, for example:
 
 ```text
-Implement Steps 5 and 6 from readme.md only. Do not start Step 4.
-Run backend/frontend checks, smoke-test the image flow, clean up test data,
+Implement Step 4 from readme.md only. Do not start Step 9.
+Run backend/frontend checks, smoke-test the 404 and error pages, clean up test data,
 and update this readme with the result.
 ```
 
@@ -1625,3 +1627,70 @@ Payment success page shows a toast after verification
 ```
 
 Frontend build was run after the toast integration.
+
+### Step 5 — Service images and technician photos — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Added `serviceImage` to the booking document and customer/technician DTOs.
+- Copied `services.coverImage` into the booking at creation time.
+- Added `coverImage` to the frontend `Service` type.
+- Added `ServiceThumbnail`, which renders the uploaded image when available and
+  falls back to category artwork.
+- Updated the home/service card:
+  - Cover image background when present.
+  - Category artwork fallback when absent.
+- Updated the service details hero:
+  - Large cover image when present.
+  - Category artwork fallback when absent.
+- Updated the technician avatar to use the technician's profile image when
+  present, with initials as fallback.
+- Updated customer bookings, customer overview, technician services, technician
+  requests, technician overview, admin services, and admin overview to use the
+  uploaded image thumbnails.
+- Added `IMGBB`-compatible image display through the stored public URL.
+
+**Verified results:**
+
+```text
+Technician service-cover upload -> 201 local URL
+/dashboard/technician/my-services -> uploaded image rendered
+/dashboard/customer/bookings -> uploaded image rendered
+/services/refrigerator-door-seal-replacement -> uploaded image rendered
+Tech profile image -> rendered on the service detail page
+```
+
+The `/services` list page was cached by ISR during the test, so the newly
+uploaded image did not appear there until revalidation. The ServiceCard code
+uses the same cover URL and will update on the next catalog revalidation.
+
+### Step 6 — ImgBB upload driver — complete
+
+**Date:** 2026-11-21
+
+**Implemented:**
+
+- Added `IMGBB_API_KEY` to the environment schema.
+- Added `UPLOAD_DRIVER=imgbb` support.
+- Added a server-side ImgBB upload branch in `src/lib/storage.ts`:
+  - Converts the validated image buffer to base64.
+  - Calls `https://api.imgbb.com/1/upload`.
+  - Uses `data.url` (direct image URL) with fallbacks.
+  - Throws a clear error when ImgBB rejects the upload.
+- Added environment validation requiring `IMGBB_API_KEY` when the driver is
+  `imgbb`.
+- Updated `.env.example` and documented the driver.
+- Kept `local` and `s3` as development/production alternatives.
+
+**Verified results:**
+
+```text
+Local driver still works: 201 service-cover upload
+ImgBB driver request points to api.imgbb.com
+ImgBB response URL is returned and stored
+```
+
+A real ImgBB upload still requires a valid `IMGBB_API_KEY`; the driver was
+verified with a mocked ImgBB response.

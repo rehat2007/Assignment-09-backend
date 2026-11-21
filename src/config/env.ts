@@ -39,7 +39,8 @@ const schema = z.object({
   SEED_PASSWORD: z.string().min(8).default("FixMateDemo123!"),
   STRIPE_SECRET_KEY: optionalString,
   STRIPE_WEBHOOK_SECRET: optionalString,
-  UPLOAD_DRIVER: z.enum(["local", "s3"]).default("local"),
+  UPLOAD_DRIVER: z.enum(["local", "s3", "imgbb"]).default("local"),
+  IMGBB_API_KEY: optionalString,
   S3_BUCKET: optionalString,
   S3_REGION: optionalString,
   S3_ACCESS_KEY_ID: optionalString,
@@ -48,6 +49,14 @@ const schema = z.object({
   S3_PUBLIC_URL: optionalUrl,
   S3_FORCE_PATH_STYLE: z.enum(["true", "false"]).optional(),
 }).superRefine((value, context) => {
+  if (value.UPLOAD_DRIVER === "imgbb" && !value.IMGBB_API_KEY) {
+    context.addIssue({
+      code: "custom",
+      path: ["IMGBB_API_KEY"],
+      message: "IMGBB_API_KEY is required when UPLOAD_DRIVER=imgbb.",
+    });
+  }
+
   if (value.UPLOAD_DRIVER !== "s3") {
     return;
   }
