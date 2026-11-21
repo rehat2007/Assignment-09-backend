@@ -16,6 +16,7 @@ import { bookingsRouter } from "./routes/bookings.js";
 import { customerRouter } from "./routes/customer.js";
 import { meRouter } from "./routes/me.js";
 import { paymentsRouter } from "./routes/payments.js";
+import { stripeWebhookHandler } from "./routes/webhooks.js";
 import { technicianRouter } from "./routes/technician.js";
 import { uploadsRouter, avatarDirectory } from "./routes/uploads.js";
 
@@ -55,9 +56,12 @@ app.use(
 // Express 5 uses *splat; Express 4 uses *.
 app.all("/api/auth/*splat", toNodeHandler(auth));
 
-// Stripe webhook must receive the raw body.
-// Mount it before express.json() when Phase 7 is implemented.
-// app.post("/api/v1/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhook);
+// Stripe webhook must receive the raw body. Mount it before express.json().
+app.post(
+  "/api/v1/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  stripeWebhookHandler,
+);
 
 app.use(express.json({ limit: "1mb" }));
 

@@ -92,6 +92,7 @@ export type BookingDocument = {
   completedAt?: Date;
   cancelledAt?: Date;
   rejectedAt?: Date;
+  checkoutSessionId?: string;
 };
 
 export type PaymentDocument = {

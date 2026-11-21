@@ -31,6 +31,8 @@ const schema = z.object({
   ADMIN_NAME: z.string().min(1).default("FixMate Admin"),
   ADMIN_PASSWORD: optionalString,
   SEED_PASSWORD: z.string().min(8).default("FixMateDemo123!"),
+  STRIPE_SECRET_KEY: optionalString,
+  STRIPE_WEBHOOK_SECRET: optionalString,
 });
 
 const parsed = schema.safeParse(process.env);

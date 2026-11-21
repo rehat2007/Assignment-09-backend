@@ -41,6 +41,12 @@ export async function ensureIndexes() {
         unique: true,
         name: "provider_session_unique",
       },
+      {
+        key: { providerPaymentIntentId: 1 },
+        unique: true,
+        sparse: true,
+        name: "provider_payment_intent_unique",
+      },
       { key: { paidAt: -1 }, name: "paid_at" },
       { key: { customerId: 1, paidAt: -1 }, name: "customer_paid" },
       { key: { technicianId: 1, paidAt: -1 }, name: "technician_paid" },

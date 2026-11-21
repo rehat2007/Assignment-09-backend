@@ -16,6 +16,7 @@ import {
   getBookingForUser,
   listCustomerBookings,
 } from "../services/bookings.js";
+import { createCheckoutSession } from "../services/payments.js";
 import {
   bookingIdParamsSchema,
   bookingListQuerySchema,
@@ -89,5 +90,22 @@ bookingsRouter.post(
 
     noStore(response);
     response.json(ok(booking));
+  },
+);
+
+bookingsRouter.post(
+  "/:id/checkout",
+  ...requireRole(["customer"]),
+  validateParams(bookingIdParamsSchema),
+  async (request, response) => {
+    const { id } = getValidatedParams<BookingIdParams>(request);
+    const checkout = await createCheckoutSession(
+      request.session!.user.id,
+      request.session!.user.email,
+      id,
+    );
+
+    noStore(response);
+    response.json(ok(checkout));
   },
 );

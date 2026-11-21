@@ -1,7 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { ObjectId } from "mongodb";
+import type Stripe from "stripe";
+import { env } from "../config/env.js";
 import { bookings, payments } from "../db/collections.js";
 import { mongoDb } from "../db/mongo.js";
 import { ApiError } from "../http/api-error.js";
+import { HTTP_STATUS } from "../http/status.js";
+import { logger } from "../lib/logger.js";
+import { stripe } from "../lib/stripe.js";
 import type { BookingDocument, PaymentDocument } from "../types/models.js";
 import type { AppRole } from "../roles.js";
 
@@ -125,4 +131,378 @@ export async function getPaymentForUser(
     booking ?? undefined,
     technicianNames.get(payment.technicianId) ?? "FixMate technician",
   );
+}
+
+function isDuplicateKey(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: number }).code === 11000
+  );
+}
+
+export async function createCheckoutSession(
+  customerId: string,
+  customerEmail: string,
+  bookingId: string,
+) {
+  const booking = await bookings.findOne({ _id: bookingId });
+
+  if (!booking || booking.customerId !== customerId) {
+    throw ApiError.notFound("Booking not found.");
+  }
+
+  if (booking.status !== "completed") {
+    throw ApiError.conflict(
+      "Only completed jobs can be paid.",
+      "INVALID_STATE",
+    );
+  }
+
+  if (booking.paymentStatus === "paid") {
+    throw ApiError.conflict(
+      "This booking is already paid.",
+      "ALREADY_PAID",
+    );
+  }
+
+  if (!booking.finalAmount || booking.finalAmount <= 0) {
+    throw ApiError.conflict(
+      "The final amount has not been set.",
+      "FINAL_AMOUNT_REQUIRED",
+    );
+  }
+
+  const existingPayment = await payments.findOne({ bookingId });
+  if (existingPayment) {
+    throw ApiError.conflict(
+      "This booking is already paid.",
+      "ALREADY_PAID",
+    );
+  }
+
+  if (!stripe) {
+    throw new ApiError(
+      HTTP_STATUS.SERVICE_UNAVAILABLE,
+      "PAYMENTS_NOT_CONFIGURED",
+      "Stripe is not configured.",
+    );
+  }
+
+  const amountCents = Math.round(booking.finalAmount * 100);
+
+  if (booking.checkoutSessionId) {
+    try {
+      const existingSession = await stripe.checkout.sessions.retrieve(
+        booking.checkoutSessionId,
+      );
+
+      if (existingSession.status === "open" && existingSession.url) {
+        return { url: existingSession.url };
+      }
+
+      if (existingSession.status === "complete") {
+        throw ApiError.conflict(
+          "Payment is already processing for this booking.",
+          "PAYMENT_PROCESSING",
+        );
+      }
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      // Expired or missing session: create a fresh one below.
+    }
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      client_reference_id: booking._id,
+      ...(customerEmail ? { customer_email: customerEmail } : {}),
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: amountCents,
+            product_data: {
+              name: booking.serviceTitle,
+              description: booking.problem.slice(0, 200),
+            },
+          },
+        },
+      ],
+      metadata: {
+        bookingId: booking._id,
+        customerId: booking.customerId,
+        technicianId: booking.technicianId,
+      },
+      payment_intent_data: {
+        metadata: {
+          bookingId: booking._id,
+          customerId: booking.customerId,
+          technicianId: booking.technicianId,
+        },
+      },
+      success_url: `${env.FRONTEND_URL}/dashboard/customer/bookings`,
+      cancel_url: `${env.FRONTEND_URL}/dashboard/customer/bookings`,
+    });
+
+    if (!session.url) {
+      throw new Error("Stripe did not return a checkout URL.");
+    }
+
+    await bookings.updateOne(
+      { _id: booking._id, customerId },
+      {
+        $set: {
+          checkoutSessionId: session.id,
+          updatedAt: new Date(),
+        },
+      },
+    );
+
+    return { url: session.url };
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+
+    logger.error("stripe_checkout_failed", {
+      bookingId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    throw new ApiError(
+      HTTP_STATUS.SERVICE_UNAVAILABLE,
+      "PAYMENT_PROVIDER_UNAVAILABLE",
+      "Could not start checkout. Please try again.",
+    );
+  }
+}
+
+async function recordStripePayment(input: {
+  booking: BookingDocument;
+  providerSessionId: string;
+  providerPaymentIntentId?: string;
+  amountCents: number;
+  paidAt: Date;
+  transactionId: string;
+}) {
+  const amount = input.amountCents / 100;
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    logger.warn("stripe_payment_invalid_amount", {
+      bookingId: input.booking._id,
+      amount: input.amountCents,
+    });
+    return;
+  }
+
+  const payment: PaymentDocument = {
+    _id: randomUUID(),
+    bookingId: input.booking._id,
+    customerId: input.booking.customerId,
+    technicianId: input.booking.technicianId,
+    amount,
+    currency: "usd",
+    provider: "stripe",
+    providerSessionId: input.providerSessionId,
+    ...(input.providerPaymentIntentId
+      ? { providerPaymentIntentId: input.providerPaymentIntentId }
+      : {}),
+    transactionId: input.transactionId,
+    status: "paid",
+    paidAt: input.paidAt,
+    invoiceNumber: `INV-${input.booking.bookingNumber}`,
+    createdAt: new Date(),
+  };
+
+  try {
+    await payments.updateOne(
+      { bookingId: input.booking._id },
+      { $setOnInsert: payment },
+      { upsert: true },
+    );
+  } catch (error) {
+    if (isDuplicateKey(error)) {
+      logger.info("stripe_payment_duplicate", {
+        bookingId: input.booking._id,
+        providerSessionId: input.providerSessionId,
+      });
+    } else {
+      throw error;
+    }
+  }
+
+  const recorded = await payments.findOne({
+    bookingId: input.booking._id,
+  });
+
+  if (!recorded) {
+    logger.error("stripe_payment_missing_after_upsert", {
+      bookingId: input.booking._id,
+      providerSessionId: input.providerSessionId,
+    });
+    return;
+  }
+
+  await bookings.updateOne(
+    { _id: input.booking._id, status: "completed" },
+    {
+      $set: {
+        paymentStatus: "paid",
+        updatedAt: new Date(),
+      },
+    },
+  );
+}
+
+async function handleCheckoutSessionCompleted(
+  event: Stripe.Event,
+) {
+  const session = event.data.object as Stripe.Checkout.Session;
+
+  if (session.payment_status !== "paid") {
+    logger.info("stripe_checkout_not_paid", {
+      eventId: event.id,
+      sessionId: session.id,
+      paymentStatus: session.payment_status,
+    });
+    return;
+  }
+
+  const bookingId =
+    session.metadata?.bookingId ?? session.client_reference_id ?? "";
+
+  if (!bookingId) {
+    logger.warn("stripe_checkout_missing_booking", {
+      eventId: event.id,
+      sessionId: session.id,
+    });
+    return;
+  }
+
+  const booking = await bookings.findOne({ _id: bookingId });
+
+  if (!booking) {
+    logger.warn("stripe_checkout_unknown_booking", {
+      eventId: event.id,
+      bookingId,
+    });
+    return;
+  }
+
+  if (booking.status !== "completed" || !booking.finalAmount) {
+    logger.warn("stripe_checkout_booking_not_payable", {
+      eventId: event.id,
+      bookingId,
+      status: booking.status,
+      finalAmount: booking.finalAmount,
+    });
+    return;
+  }
+
+  const expectedCents = Math.round(booking.finalAmount * 100);
+  const amountCents = session.amount_total ?? 0;
+
+  if (
+    amountCents !== expectedCents ||
+    (session.currency ?? "usd") !== "usd"
+  ) {
+    logger.error("stripe_checkout_amount_mismatch", {
+      eventId: event.id,
+      bookingId,
+      expectedCents,
+      amountCents,
+      currency: session.currency,
+    });
+    return;
+  }
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id;
+
+  await recordStripePayment({
+    booking,
+    providerSessionId: session.id,
+    ...(paymentIntentId
+      ? { providerPaymentIntentId: paymentIntentId }
+      : {}),
+    amountCents,
+    paidAt: new Date(event.created * 1000),
+    transactionId: paymentIntentId ?? session.id,
+  });
+}
+
+async function handlePaymentIntentSucceeded(event: Stripe.Event) {
+  const intent = event.data.object as Stripe.PaymentIntent;
+  const bookingId = intent.metadata?.bookingId ?? "";
+
+  if (!bookingId) {
+    logger.warn("stripe_intent_missing_booking", {
+      eventId: event.id,
+      paymentIntentId: intent.id,
+    });
+    return;
+  }
+
+  const booking = await bookings.findOne({ _id: bookingId });
+
+  if (!booking) {
+    logger.warn("stripe_intent_unknown_booking", {
+      eventId: event.id,
+      bookingId,
+    });
+    return;
+  }
+
+  if (booking.status !== "completed" || !booking.finalAmount) {
+    logger.warn("stripe_intent_booking_not_payable", {
+      eventId: event.id,
+      bookingId,
+      status: booking.status,
+      finalAmount: booking.finalAmount,
+    });
+    return;
+  }
+
+  const expectedCents = Math.round(booking.finalAmount * 100);
+  const amountCents = intent.amount_received || intent.amount;
+
+  if (amountCents !== expectedCents || intent.currency !== "usd") {
+    logger.error("stripe_intent_amount_mismatch", {
+      eventId: event.id,
+      bookingId,
+      expectedCents,
+      amountCents,
+      currency: intent.currency,
+    });
+    return;
+  }
+
+  await recordStripePayment({
+    booking,
+    providerSessionId: booking.checkoutSessionId ?? intent.id,
+    providerPaymentIntentId: intent.id,
+    amountCents,
+    paidAt: new Date(event.created * 1000),
+    transactionId: intent.id,
+  });
+}
+
+export async function handleStripeEvent(event: Stripe.Event) {
+  switch (event.type) {
+    case "checkout.session.completed":
+      await handleCheckoutSessionCompleted(event);
+      return;
+    case "payment_intent.succeeded":
+      await handlePaymentIntentSucceeded(event);
+      return;
+    default:
+      logger.info("stripe_event_ignored", {
+        eventId: event.id,
+        type: event.type,
+      });
+  }
 }
