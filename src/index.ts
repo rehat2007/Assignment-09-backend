@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./auth.js";
-import { env, trustedOrigins } from "./config/env.js";
+import { env, isDeployed, trustedOrigins } from "./config/env.js";
 import { mongoClient, mongoDb } from "./db/mongo.js";
 import { fail, ok } from "./http/response.js";
 import { HTTP_STATUS } from "./http/status.js";
@@ -28,7 +28,7 @@ const app = express();
 
 app.disable("x-powered-by");
 
-if (env.NODE_ENV === "production") {
+if (isDeployed) {
   app.set("trust proxy", 1);
 }
 

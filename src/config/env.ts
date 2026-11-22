@@ -101,14 +101,18 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
+// Vercel sets VERCEL=1 and does not reliably set NODE_ENV for Express apps.
+// Treat any deployed environment as production-like.
+export const isDeployed =
+  env.NODE_ENV === "production" || process.env.VERCEL === "1";
+
 // The frontend origin plus the backend origin. Extra localhost origins are
-// trusted only in development so a dev server on another port still works.
+// trusted only outside deployed environments so a dev server on another port
+// still works.
 export const trustedOrigins = Array.from(
   new Set([
     env.FRONTEND_URL,
     env.BETTER_AUTH_URL,
-    ...(env.NODE_ENV !== "production"
-      ? ["http://localhost:3000", "http://127.0.0.1:3000"]
-      : []),
+    ...(isDeployed ? [] : ["http://localhost:3000", "http://127.0.0.1:3000"]),
   ]),
 );

@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler, RequestHandler } from "express";
 import { ZodError } from "zod";
+import { isDeployed } from "../config/env.js";
 import { ApiError } from "../http/api-error.js";
 import { fail } from "../http/response.js";
 import { HTTP_STATUS } from "../http/status.js";
@@ -66,9 +67,7 @@ export const errorHandler: ErrorRequestHandler = (
     method: request.method,
     path: request.path,
     error: error instanceof Error ? error.message : String(error),
-    ...(process.env.NODE_ENV !== "production" && error instanceof Error
-      ? { stack: error.stack }
-      : {}),
+    ...(!isDeployed && error instanceof Error ? { stack: error.stack } : {}),
   });
 
   response

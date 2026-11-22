@@ -32,6 +32,10 @@ they differ.
   default.
 - `BETTER_AUTH_URL` is the backend origin (cookies, JWT, local upload URLs);
   `FRONTEND_URL` is the allowed frontend origin for CORS/trusted origins.
+- Vercel does not reliably set `NODE_ENV` for Express apps. Use `isDeployed`
+  from `src/config/env.ts` (`NODE_ENV=production` or `VERCEL=1`) for production
+  behavior; do not add `NODE_ENV=production` on Vercel because npm then skips
+  devDependencies.
 - If `mongodb+srv://` fails on Windows, set `MONGODB_DNS_SERVERS=1.1.1.1`
   (handled in `src/db/mongo.ts`).
 
@@ -82,3 +86,6 @@ they differ.
   for `.ts` sources (e.g. `import { env } from "./config/env.js"`).
 - `strict` and `noUncheckedIndexedAccess` are enabled; indexed access can be
   `undefined`. `tsconfig.json` includes both `src/` and `scripts/`.
+- TypeScript is pinned to 5.9.x for Vercel compatibility; TypeScript 7 breaks
+  Vercel's compiler-API typecheck. Keep `typeRoots` explicit so generated
+  configs outside the repo can still resolve `@types/node`.

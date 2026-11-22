@@ -1,6 +1,6 @@
 import { setServers } from "node:dns";
 import { MongoClient } from "mongodb";
-import { env } from "../config/env.js";
+import { env, isDeployed } from "../config/env.js";
 
 // Some local Windows setups point Node's resolver at 127.0.0.1, which refuses
 // the SRV lookup needed by mongodb+srv://. Allow a public resolver override.
@@ -24,7 +24,7 @@ export const mongoClient =
     serverSelectionTimeoutMS: 5_000,
   });
 
-if (env.NODE_ENV !== "production") {
+if (!isDeployed) {
   globalForMongo.fixmateMongoClient = mongoClient;
 }
 

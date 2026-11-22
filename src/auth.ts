@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { admin } from "better-auth/plugins";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
-import { env, trustedOrigins } from "./config/env.js";
+import { env, isDeployed, trustedOrigins } from "./config/env.js";
 import { mongoDb } from "./db/mongo.js";
 
 const googleProvider =
@@ -22,8 +22,8 @@ export const auth = betterAuth({
   database: mongodbAdapter(mongoDb),
   advanced: {
     defaultCookieAttributes: {
-      sameSite: env.NODE_ENV === "production" ? "none" : "lax",
-      secure: env.NODE_ENV === "production",
+      sameSite: isDeployed ? "none" : "lax",
+      secure: isDeployed,
     },
   },
   emailAndPassword: {

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { env } from "../config/env.js";
+import { env, isDeployed } from "../config/env.js";
 import { ok } from "../http/response.js";
 import {
   JWT_COOKIE_NAME,
@@ -13,8 +13,8 @@ export const authTokenRouter = Router();
 function cookieOptions() {
   return {
     httpOnly: true,
-    sameSite: env.NODE_ENV === "production" ? ("none" as const) : ("lax" as const),
-    secure: env.NODE_ENV === "production",
+    sameSite: isDeployed ? ("none" as const) : ("lax" as const),
+    secure: isDeployed,
     path: "/",
     maxAge: JWT_MAX_AGE_SECONDS * 1000,
   };
@@ -43,9 +43,8 @@ authTokenRouter.post("/token", verifyToken, (request, response) => {
 authTokenRouter.post("/logout", (_request, response) => {
   response.clearCookie(JWT_COOKIE_NAME, {
     httpOnly: true,
-    sameSite:
-      env.NODE_ENV === "production" ? ("none" as const) : ("lax" as const),
-    secure: env.NODE_ENV === "production",
+    sameSite: isDeployed ? ("none" as const) : ("lax" as const),
+    secure: isDeployed,
     path: "/",
   });
   response.setHeader("Cache-Control", "no-store");
