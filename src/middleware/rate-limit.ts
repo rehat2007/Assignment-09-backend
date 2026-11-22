@@ -1,6 +1,17 @@
-import rateLimit from "express-rate-limit";
+import type { Request, RequestHandler, Response } from "express";
+import rateLimitDefault from "express-rate-limit";
 import { fail } from "../http/response.js";
 import { HTTP_STATUS } from "../http/status.js";
+
+// Vercel's checker can resolve express-rate-limit's dual ESM/CJS types as a
+// namespace instead of its callable default export.
+const rateLimit = rateLimitDefault as unknown as (options: {
+  windowMs: number;
+  limit: number;
+  standardHeaders: "draft-7";
+  legacyHeaders: false;
+  handler: (request: Request, response: Response) => void;
+}) => RequestHandler;
 
 function createLimiter(options: {
   windowMs: number;
