@@ -2,6 +2,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { env } from "../config/env.js";
+import { ApiError } from "../http/api-error.js";
+import { HTTP_STATUS } from "../http/status.js";
 
 export type PutImageInput = {
   /** Server-generated object key, never a browser-supplied filename. */
@@ -61,7 +63,11 @@ function publicUrlFor(key: string) {
 
 async function uploadToImgbb(input: PutImageInput) {
   if (!env.IMGBB_API_KEY) {
-    throw new Error("IMGBB_API_KEY is not configured.");
+    throw new ApiError(
+      HTTP_STATUS.SERVICE_UNAVAILABLE,
+      "IMGBB_NOT_CONFIGURED",
+      "ImgBB is not configured.",
+    );
   }
 
   const body = new URLSearchParams();
@@ -92,7 +98,9 @@ async function uploadToImgbb(input: PutImageInput) {
     payload?.data?.display_url;
 
   if (!response.ok || !payload?.success || !url) {
-    throw new Error(
+    throw new ApiError(
+      HTTP_STATUS.UNPROCESSABLE_ENTITY,
+      "IMGBB_UPLOAD_FAILED",
       payload?.error?.message ?? "ImgBB did not accept the image.",
     );
   }

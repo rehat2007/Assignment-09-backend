@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { ObjectId } from "mongodb";
+import { hashPassword } from "better-auth/crypto";
 import { auth } from "../src/auth.js";
 import { env } from "../src/config/env.js";
 import {
@@ -132,6 +134,58 @@ async function seedUsers(seeds: DemoUserSeed[]) {
   console.log(`Users: ${created} created, ${existing} already existed`);
 
   return usersByEmail;
+}
+
+async function ensureCredentialAccounts(
+  seeds: DemoUserSeed[],
+  usersByEmail: Map<string, SeededUser>,
+) {
+  const accounts = mongoDb.collection("account");
+  let created = 0;
+
+  for (const seed of seeds) {
+    const user = usersByEmail.get(seed.email);
+
+    if (!user) continue;
+
+    const objectId = ObjectId.isValid(user.id)
+      ? new ObjectId(user.id)
+      : null;
+
+    if (!objectId) continue;
+
+    const existing = await accounts.findOne({
+      userId: objectId,
+      providerId: "credential",
+    });
+
+    if (existing) continue;
+
+    const password =
+      seed.role === "admin"
+        ? (env.ADMIN_PASSWORD ?? env.SEED_PASSWORD)
+        : env.SEED_PASSWORD;
+    const now = new Date();
+
+    await accounts.updateOne(
+      { userId: objectId, providerId: "credential" },
+      {
+        $setOnInsert: {
+          _id: new ObjectId(),
+          accountId: user.id,
+          providerId: "credential",
+          userId: objectId,
+          password: await hashPassword(password),
+          createdAt: now,
+          updatedAt: now,
+        },
+      },
+      { upsert: true },
+    );
+    created += 1;
+  }
+
+  console.log(`Credential accounts: ${created} created for demo users`);
 }
 
 async function seedProfiles(
@@ -688,6 +742,7 @@ async function main() {
     throw new Error(`Missing admin user ${env.ADMIN_EMAIL}`);
   }
 
+  await ensureCredentialAccounts(seeds, usersByEmail);
   await seedProfiles(seeds, usersByEmail);
   await seedServices(seeds, usersByEmail, admin.id);
   await seedReviews(seeds, usersByEmail);

@@ -2138,3 +2138,41 @@ npm run test:smoke
 Rate-limit counters were not deliberately exhausted during the smoke test to
 avoid locking the local demo for 15 minutes. The middleware is applied and
 typechecked; production should be verified with a staging request burst.
+
+### ImgBB verification and credential-account repair — complete
+
+**Date:** 2026-11-22
+
+**Verified:**
+
+- Real ImgBB uploads work through:
+  - `POST /api/v1/uploads/service-cover`
+  - `POST /api/v1/uploads/avatar`
+- Both return `https://i.ibb.co/...` URLs.
+- Uploaded URLs return `200 image/jpeg`.
+- MongoDB stores only the public URL.
+- Technician My Services and the profile page render the ImgBB URLs.
+- Invalid image bytes still return `415` before reaching ImgBB.
+- ImgBB provider errors now return `422 IMGBB_UPLOAD_FAILED` instead of `500`.
+
+**Fixed:**
+
+- `scripts/seed.ts` now creates Better Auth credential accounts for existing
+  demo users when the `account` collection is missing entries.
+- The credential `userId` is stored as an MongoDB `ObjectId`, matching Better
+  Auth's own sign-up format, and `accountId` as the user ID string.
+- This fixes password sign-in on partially restored or imported databases.
+
+**Verified after the fix:**
+
+```text
+customer@fixmate.dev -> 200
+rakib@fixmate.dev -> 200
+sadia@fixmate.dev -> 200
+tanvir@mail.com -> 200
+admin@fixmate.dev -> 200
+npm run test:smoke -> pass
+```
+
+ImgBB requires a real image; extremely small 1×1 test images may be rejected by
+ImgBB with error code 103.
