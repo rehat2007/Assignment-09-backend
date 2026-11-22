@@ -6,6 +6,7 @@ import {
   services,
   technicianProfiles,
 } from "../src/db/collections.js";
+import { ensureIndexes } from "../src/db/indexes.js";
 import { mongoClient, mongoDb } from "../src/db/mongo.js";
 
 const users = mongoDb.collection("user");
@@ -173,7 +174,8 @@ async function main() {
   await migrateServices();
   await migrateBookings();
   await migratePayments();
-  console.log("Schema compatibility migration complete.");
+  await ensureIndexes();
+  console.log("Schema compatibility migration and indexes complete.");
 }
 
 main()
