@@ -137,29 +137,34 @@ app.use("/api/v1/uploads", uploadsRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-const server = app.listen(env.PORT, () => {
-  logger.info("server_started", {
-    port: env.PORT,
-    url: env.BETTER_AUTH_URL,
-    frontendUrl: env.FRONTEND_URL,
-  });
-});
-
-let shuttingDown = false;
-
-async function shutdown(signal: string) {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  logger.info("server_stopping", { signal });
-
-  server.close(async () => {
-    await mongoClient.close().catch(() => undefined);
-    process.exit(0);
+// Vercel sets VERCEL and uses the default export below as a serverless handler.
+if (!process.env.VERCEL) {
+  const server = app.listen(env.PORT, () => {
+    logger.info("server_started", {
+      port: env.PORT,
+      url: env.BETTER_AUTH_URL,
+      frontendUrl: env.FRONTEND_URL,
+    });
   });
 
-  // Do not hang forever on stuck connections.
-  setTimeout(() => process.exit(1), 10_000).unref();
+  let shuttingDown = false;
+
+  async function shutdown(signal: string) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info("server_stopping", { signal });
+
+    server.close(async () => {
+      await mongoClient.close().catch(() => undefined);
+      process.exit(0);
+    });
+
+    // Do not hang forever on stuck connections.
+    setTimeout(() => process.exit(1), 10_000).unref();
+  }
+
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }
 
-process.on("SIGINT", () => void shutdown("SIGINT"));
-process.on("SIGTERM", () => void shutdown("SIGTERM"));
+export default app;

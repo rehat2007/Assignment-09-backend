@@ -20,6 +20,12 @@ export const auth = betterAuth({
   trustedOrigins,
   // No `client` option: works with standalone MongoDB and Atlas alike.
   database: mongodbAdapter(mongoDb),
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+      secure: env.NODE_ENV === "production",
+    },
+  },
   emailAndPassword: {
     enabled: true,
   },
