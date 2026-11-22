@@ -52,9 +52,33 @@ export async function verifyToken(
   _response: Response,
   next: NextFunction,
 ) {
+  const authorizationToken = bearerToken(request);
+
+  // Browser requests should follow the current Better Auth session. A stale
+  // `fixmate_token` cookie from a previous account must not override it, or
+  // signing in as a customer after an admin session keeps hitting customer
+  // endpoints as the admin and returning 403. Explicit Bearer tokens still win
+  // for API clients.
+  if (!authorizationToken) {
+    try {
+      const session = await auth.api.getSession({
+        headers: fromNodeHeaders(request.headers),
+      });
+
+      if (session) {
+        request.session = session;
+        request.appRole = getAppRole(session.user);
+        next();
+        return;
+      }
+    } catch {
+      // Fall through to the JWT cookie; a failed session lookup should not
+      // break clients that authenticated with a token.
+    }
+  }
+
   const token =
-    bearerToken(request) ??
-    cookieValue(request.headers.cookie, JWT_COOKIE_NAME);
+    authorizationToken ?? cookieValue(request.headers.cookie, JWT_COOKIE_NAME);
 
   if (token) {
     const payload = verifyAccessToken(token);

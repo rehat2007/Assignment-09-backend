@@ -55,10 +55,11 @@ they differ.
   hand-roll error envelopes.
 - Both `/api/v1/...` and the legacy `/api/...` aliases in `src/routes/compat.ts`
   use the same service layer. Change services, not just one router.
-- Auth is either a Bearer JWT or the `fixmate_token` cookie, with a Better Auth
-  session fallback. Use `verifyToken`, `verifyCustomer`, `verifyTechnician`,
-  `verifyAdmin`. Admin comes from Better Auth `role`; otherwise `accountType`
-  decides customer vs technician.
+- Browser requests prefer the current Better Auth session, then fall back to the
+  `fixmate_token` JWT cookie; explicit Bearer JWTs still take precedence. A stale
+  JWT from an older account must not override the active session. Use
+  `verifyToken`, `verifyCustomer`, `verifyTechnician`, `verifyAdmin`. Admin comes
+  from Better Auth `role`; otherwise `accountType` decides customer vs technician.
 
 ## Data / domain gotchas
 
