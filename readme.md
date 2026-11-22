@@ -6,9 +6,9 @@ verified technicians, track every job, and pay only after the work is completed.
 Technicians manage listings and requests, while admins moderate services, users,
 bookings, and payments.
 
-> **Status:** Core product, reviews, uploads, payments, JWT authorization,
-> hardening, and demo data are implemented. Production deployment is the
-> remaining step.
+> **Status:** Core product, reviews, uploads, payments, JWT authorization, and
+> hardening are implemented. Demo data has been removed. Production deployment
+> is the remaining step.
 
 ---
 
@@ -24,12 +24,11 @@ bookings, and payments.
 - [Environment variables](#environment-variables)
 - [Communicating with the API](#communicating-with-the-api)
 - [Authentication and authorization](#authentication-and-authorization)
-- [Demo accounts and test data](#demo-accounts-and-test-data)
+- [Production data setup](#production-data-setup)
 - [Testing and quality checks](#testing-and-quality-checks)
 - [Live API, source code, and deployment](#live-api-source-code-and-deployment)
 
 ---
-
 ## What is this project?
 
 FixMate is an on-demand repair service platform with three roles:
@@ -146,18 +145,18 @@ FixMate solves this by providing:
 
 ```text
 Browser
-  │
-  ├── Next.js frontend  ──────────────┐
-  │   App Router, SSR, cookies        │
-  │                                   │
-  └── Express API  ◄──────────────────┘
-        │
-        ├── Better Auth sessions + JWT
-        ├── Zod validation
-        ├── Role and ownership middleware
-        ├── MongoDB (users, services, bookings, payments)
-        ├── Stripe Checkout + webhook
-        └── ImgBB / S3 / local uploads
+  |
+  +-- Next.js frontend
+  |   App Router, SSR, cookies
+  |
+  +-- Express API
+        |
+        +-- Better Auth sessions + JWT
+        +-- Zod validation
+        +-- Role and ownership middleware
+        +-- MongoDB (user, services, bookings, payments)
+        +-- Stripe Checkout + webhook
+        +-- ImgBB / S3 / local uploads
 ```
 
 ### Core data model
@@ -186,63 +185,64 @@ Optional feature collections:
 
 ```text
 fix_mate_back_end/
-├── src/
-│   ├── index.ts                 # Express app, middleware order, route mounts
-│   ├── auth.ts                  # Better Auth configuration
-│   ├── roles.ts                 # App role resolution
-│   ├── config/
-│   │   └── env.ts               # Zod-validated environment variables
-│   ├── db/
-│   │   ├── mongo.ts             # MongoDB client + database
-│   │   ├── collections.ts       # Typed collection exports
-│   │   └── indexes.ts           # Unique and query indexes
-│   ├── http/
-│   │   ├── api-error.ts         # Expected API errors
-│   │   ├── response.ts          # { data, meta } and pagination helpers
-│   │   └── status.ts            # HTTP status constants
-│   ├── lib/
-│   │   ├── jwt.ts               # JWT signing and verification
-│   │   ├── logger.ts            # Structured logs
-│   │   ├── storage.ts           # local / S3 / ImgBB upload drivers
-│   │   ├── stripe.ts            # Stripe client
-│   │   └── spend-series.ts      # Aggregation helper
-│   ├── middleware/
-│   │   ├── auth.ts              # Legacy requireUser/requireRole aliases
-│   │   ├── jwt-auth.ts          # verifyToken/Customer/Technician/Admin
-│   │   ├── rate-limit.ts        # Auth, booking, upload limiters
-│   │   ├── validate.ts          # Zod body/query/params validation
-│   │   ├── errors.ts            # 404 and central error handler
-│   │   └── request-context.ts   # Request ID + access logs
-│   ├── routes/
-│   │   ├── auth-token.ts        # POST /api/v1/auth/token, /logout
-│   │   ├── catalog.ts           # Public catalog + reviews
-│   │   ├── bookings.ts          # Customer bookings + review
-│   │   ├── customer.ts          # Customer overview + payments
-│   │   ├── payments.ts          # Payment verification + detail
-│   │   ├── technician.ts        # Technician services + requests
-│   │   ├── admin.ts             # Admin users, services, bookings, payments
-│   │   ├── uploads.ts           # Avatar + service-cover uploads
-│   │   ├── webhooks.ts          # Stripe webhook
-│   │   ├── me.ts                # Current user
-│   │   └── compat.ts            # Assignment-compatible /api aliases
-│   ├── services/
-│   │   ├── admin.ts             # Admin business logic
-│   │   ├── bookings.ts          # Booking lifecycle
-│   │   ├── catalog.ts           # Public catalog + reviews
-│   │   ├── payments.ts          # Stripe verification + idempotency
-│   │   ├── reviews.ts           # Review creation + aggregation
-│   │   └── technician.ts        # Technician services + requests
-│   ├── validation/              # Zod schemas by domain
-│   └── types/
-│       └── models.ts            # MongoDB document types
-├── scripts/
-│   ├── seed.ts                  # Demo users, services, bookings, payments
-│   ├── seed-data.ts             # Seed fixture data
-│   ├── migrate-schema.ts        # Assignment compatibility migration
-│   ├── hardening-smoke.ts       # Repeatable security/flow smoke test
-│   └── create-admin.ts          # Bootstrap an admin account
-├── .env.example                 # Environment template
-└── package.json
+|-- src/
+|   |-- index.ts                 # Express app, middleware order, route mounts
+|   |-- auth.ts                  # Better Auth configuration
+|   |-- roles.ts                 # App role resolution
+|   |-- config/
+|   |   `-- env.ts               # Zod-validated environment variables
+|   |-- db/
+|   |   |-- mongo.ts             # MongoDB client + database
+|   |   |-- collections.ts       # Typed collection exports
+|   |   `-- indexes.ts           # Unique and query indexes
+|   |-- http/
+|   |   |-- api-error.ts         # Expected API errors
+|   |   |-- response.ts          # { data, meta } and pagination helpers
+|   |   `-- status.ts            # HTTP status constants
+|   |-- lib/
+|   |   |-- jwt.ts               # JWT signing and verification
+|   |   |-- logger.ts            # Structured logs
+|   |   |-- storage.ts           # local / S3 / ImgBB upload drivers
+|   |   |-- stripe.ts            # Stripe client
+|   |   `-- spend-series.ts      # Aggregation helper
+|   |-- middleware/
+|   |   |-- auth.ts              # Legacy requireUser/requireRole aliases
+|   |   |-- jwt-auth.ts          # verifyToken/Customer/Technician/Admin
+|   |   |-- rate-limit.ts        # Auth, booking, upload limiters
+|   |   |-- validate.ts          # Zod body/query/params validation
+|   |   |-- errors.ts            # 404 and central error handler
+|   |   `-- request-context.ts   # Request ID + access logs
+|   |-- routes/
+|   |   |-- auth-token.ts        # POST /api/v1/auth/token, /logout
+|   |   |-- catalog.ts           # Public catalog + reviews
+|   |   |-- bookings.ts          # Customer bookings + review
+|   |   |-- customer.ts          # Customer overview + payments
+|   |   |-- payments.ts          # Payment verification + detail
+|   |   |-- technician.ts        # Technician services + requests
+|   |   |-- admin.ts             # Admin users, services, bookings, payments
+|   |   |-- uploads.ts           # Avatar + service-cover uploads
+|   |   |-- webhooks.ts          # Stripe webhook
+|   |   |-- me.ts                # Current user
+|   |   `-- compat.ts            # Assignment-compatible /api aliases
+|   |-- services/
+|   |   |-- admin.ts             # Admin business logic
+|   |   |-- bookings.ts          # Booking lifecycle
+|   |   |-- catalog.ts           # Public catalog + reviews
+|   |   |-- payments.ts          # Stripe verification + idempotency
+|   |   |-- reviews.ts           # Review creation + aggregation
+|   |   `-- technician.ts        # Technician services + requests
+|   |-- validation/              # Zod schemas by domain
+|   `-- types/
+|       `-- models.ts            # MongoDB document types
+|-- scripts/
+|   |-- seed.ts                  # Local demo users, services, bookings, payments
+|   |-- seed-data.ts             # Demo fixture data
+|   |-- migrate-schema.ts        # Assignment compatibility migration
+|   |-- clear-demo-data.ts       # Remove demo data before deployment
+|   |-- hardening-smoke.ts       # Repeatable security/flow smoke test
+|   `-- create-admin.ts          # Bootstrap an admin account
+|-- .env.example                 # Environment template
+`-- package.json
 ```
 
 ### Middleware order
@@ -290,10 +290,16 @@ cd C:\web_dev\fix_mate\fix_mate_back_end
 Copy-Item .env.example .env
 # Edit .env and fill in the real values.
 npm install
-npm run seed
 npm run migrate:schema
+npm run auth:admin
 npm run dev
 ```
+
+`npm run auth:admin` creates or promotes the admin account using
+`ADMIN_EMAIL` and `ADMIN_PASSWORD` from `.env`.
+
+> `npm run seed` is **local development only**. Do not run it on a production
+> database. Use `npm run data:clear-demo` to remove demo data.
 
 Backend URLs:
 
@@ -319,7 +325,8 @@ http://localhost:3000
 
 ### 4. Sign in
 
-Use a demo account from the section below.
+Use the admin account created by `npm run auth:admin`. Customers and technicians
+can create their own accounts through the sign-up page.
 
 ### 5. Test payments
 
@@ -378,7 +385,7 @@ FRONTEND_URL=http://localhost:3000
 JWT_SECRET=
 JWT_EXPIRES_IN=7d
 
-# Demo/admin accounts
+# Admin account + local demo users
 ADMIN_EMAIL=admin@fixmate.dev
 ADMIN_NAME=FixMate Admin
 ADMIN_PASSWORD=
@@ -418,8 +425,8 @@ S3_FORCE_PATH_STYLE=false
 | `JWT_SECRET` | Recommended | Falls back to `BETTER_AUTH_SECRET` |
 | `JWT_EXPIRES_IN` | Optional | Defaults to `7d` |
 | `ADMIN_EMAIL` | Yes | Admin login email |
-| `ADMIN_PASSWORD` | Yes for admin | Admin password used by seed/auth tooling |
-| `SEED_PASSWORD` | Yes for demo users | Password for technician/customer demo accounts |
+| `ADMIN_PASSWORD` | Yes for admin | Used by `npm run auth:admin` and admin login |
+| `SEED_PASSWORD` | Local demo only | Password for demo technician/customer accounts |
 | `STRIPE_SECRET_KEY` | For payments | Leave blank to run without checkout |
 | `STRIPE_WEBHOOK_SECRET` | For webhooks | Must be the `whsec_...` signing secret |
 | `UPLOAD_DRIVER` | Yes | `local`, `imgbb`, or `s3` |
@@ -601,7 +608,7 @@ curl.exe "http://localhost:4000/api/v1/services?category=AC&sort=price-asc"
 ```powershell
 curl.exe -c cookies.txt -X POST "http://localhost:4000/api/auth/sign-in/email" `
   -H "Content-Type: application/json" `
-  -d "{\"email\":\"customer@fixmate.dev\",\"password\":\"FixMateDemo123!\"}"
+  -d "{\"email\":\"you@example.com\",\"password\":\"your-password\"}"
 
 curl.exe -b cookies.txt -c cookies.txt -X POST "http://localhost:4000/api/v1/auth/token"
 ```
@@ -652,7 +659,7 @@ Roles are resolved from:
 2. `accountType` (`technician` or `customer`).
 
 Public sign-up can only choose customer or technician. Admin accounts are
-created through seed/admin tooling.
+created through `npm run auth:admin`.
 
 ### Middleware
 
@@ -704,66 +711,65 @@ Rate-limited responses use the standard `429 RATE_LIMITED` envelope.
 
 ---
 
-## Demo accounts and test data
+## Production data setup
 
-Run the seed to create the complete demo dataset:
+The production database should contain **real data only**. Do not run the demo
+seed on production.
+
+### 1. Create the admin account
+
+Set unique production values in the backend `.env`:
+
+```env
+ADMIN_EMAIL=your-admin@your-domain.com
+ADMIN_NAME=Your Admin Name
+ADMIN_PASSWORD=a-strong-unique-password
+```
+
+Then create or promote the admin:
 
 ```powershell
 cd C:\web_dev\fix_mate\fix_mate_back_end
-npm run seed
-npm run migrate:schema
+npm run auth:admin
 ```
 
-### Accounts
+### 2. Create real technicians and customers
 
-| Role | Email | Password |
-|---|---|---|
-| Admin | `admin@fixmate.dev` | `ADMIN_PASSWORD` from `.env` |
-| Technician | `rakib@fixmate.dev` | `SEED_PASSWORD` (`FixMateDemo123!` by default) |
-| Technician | `sadia@fixmate.dev` | `SEED_PASSWORD` |
-| Technician | `nayeem@fixmate.dev` | `SEED_PASSWORD` |
-| Customer | `customer@fixmate.dev` | `SEED_PASSWORD` |
-| Customer | `tanvir@mail.com` | `SEED_PASSWORD` |
+Use the public sign-up page to create technician and customer accounts.
+Technicians add their own services, and the admin approves them from the admin
+dashboard.
 
-Additional seeded customers: `mehedi@mail.com`, `nusrat@mail.com`,
-`farhan@mail.com`, `sumaiya@mail.com`, `imran@mail.com`, `rifat@mail.com`.
+### 3. Remove demo data if it was ever seeded
 
-### Seeded data
-
-```text
-users:              12
-credential accounts: 12
-technician profiles: 3
-services:           15 approved
-bookings:            8 across every status
-payments:            2 synthetic paid transactions
-reviews:             8
+```powershell
+npm run data:clear-demo
 ```
 
-Demo bookings:
+This removes:
 
-| Booking | Customer | Technician | Status | Payment |
-|---|---|---|---|---|
-| `FM-DEMO-1001` | Ayesha | Rakib | Requested | Unpaid |
-| `FM-DEMO-1002` | Tanvir | Sadia | Accepted | Unpaid |
-| `FM-DEMO-1003` | Ayesha | Sadia | In Progress | Unpaid |
-| `FM-DEMO-1004` | Ayesha | Sadia | Completed | Unpaid · $55 |
-| `FM-DEMO-1005` | Ayesha | Rakib | Completed | Paid · $70 |
-| `FM-DEMO-1006` | Farhan | Nayeem | Completed | Paid · $80 |
-| `FM-DEMO-1007` | Mehedi | Rakib | Cancelled | Unpaid |
-| `FM-DEMO-1008` | Nusrat | Rakib | Rejected | Unpaid |
+- Demo users except the configured `ADMIN_EMAIL`
+- Demo services
+- Demo bookings and payments
+- Seeded reviews
+- Technician profiles
+- Admin audit logs
+- Orphan auth accounts and sessions
 
-The two seeded payments are synthetic and do not appear in Stripe. Use
-`FM-DEMO-1004` for a real Stripe test with:
+It preserves the configured admin account so you can still sign in.
 
-```text
-4242 4242 4242 4242
-Any future expiry
-Any 3-digit CVC
-```
+### 4. Production checklist
 
-If demo login stops working, re-run `npm run seed`; it repairs missing Better
-Auth credential accounts.
+- [ ] `MONGODB_URI` points to the production database.
+- [ ] `BETTER_AUTH_URL` and `FRONTEND_URL` use production origins.
+- [ ] A real admin exists via `npm run auth:admin`.
+- [ ] Real technicians and customers have signed up.
+- [ ] Real services are approved by the admin.
+- [ ] `UPLOAD_DRIVER=imgbb` and `IMGBB_API_KEY` are set.
+- [ ] Stripe webhook is configured for the production API.
+- [ ] No demo bookings, payments, or reviews remain.
+
+> `npm run seed` is for local development and automated demo testing only.
+> Never run it against a production database.
 
 ---
 
@@ -775,10 +781,14 @@ Auth credential accounts.
 cd C:\web_dev\fix_mate\fix_mate_back_end
 npm run typecheck
 npm run build
-npm run seed
 npm run migrate:schema
+# Optional: restore local demo data before the smoke test
+npm run seed
 npm run test:smoke
 ```
+
+> `npm run seed` and `npm run test:smoke` use the local demo dataset. Do not run
+> them against a production database.
 
 `npm run test:smoke` checks:
 
@@ -838,10 +848,17 @@ https://api.your-domain.com/api/v1/health
 9. Set `UPLOAD_DRIVER=imgbb` and `IMGBB_API_KEY` on the backend host.
 10. Run on the production database:
     ```powershell
-    npm run seed
     npm run migrate:schema
     ```
-11. Test signup, login, booking, payment, review, upload, and reload behavior.
+11. Set `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_NAME`, then create the real
+    admin:
+    ```powershell
+    npm run auth:admin
+    ```
+12. Sign up real technicians and customers through the UI.
+13. Have technicians add real services and approve them from the admin dashboard.
+14. Do **not** run `npm run seed` on production.
+15. Test signup, login, booking, payment, review, upload, and reload behavior.
 
 ### Known limitations
 
@@ -850,7 +867,7 @@ https://api.your-domain.com/api/v1/health
   optional `reviews`, `technicianProfiles`, and `auditLogs` collections remain as
   feature extensions.
 - ImgBB requires a real image; tiny 1×1 test images may be rejected.
-- Seed payments are synthetic and are not Stripe charges.
+- The demo seed is for local development only.
 
 ---
 

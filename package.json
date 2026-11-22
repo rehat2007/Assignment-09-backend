@@ -9,6 +9,7 @@
     "start": "node dist/src/index.js",
     "typecheck": "tsc --noEmit",
     "seed": "tsx scripts/seed.ts",
+    "data:clear-demo": "tsx scripts/clear-demo-data.ts",
     "migrate:schema": "tsx scripts/migrate-schema.ts",
     "test:smoke": "tsx scripts/hardening-smoke.ts",
     "auth:admin": "tsx scripts/create-admin.ts"
