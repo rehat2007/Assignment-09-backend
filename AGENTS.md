@@ -38,6 +38,9 @@ they differ.
   devDependencies.
 - If `mongodb+srv://` fails on Windows, set `MONGODB_DNS_SERVERS=1.1.1.1`
   (handled in `src/db/mongo.ts`).
+- The Mongo client forces IPv4 (`family: 4`) and a 15s selection timeout;
+  Vercel can advertise IPv6 without a working route, and Atlas cold starts can
+  exceed 5s.
 
 ## Architecture conventions
 

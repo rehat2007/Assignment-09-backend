@@ -20,8 +20,11 @@ const globalForMongo = globalThis as unknown as {
 export const mongoClient =
   globalForMongo.fixmateMongoClient ??
   new MongoClient(env.MONGODB_URI, {
-    // Fail health checks and startup work quickly instead of hanging.
-    serverSelectionTimeoutMS: 5_000,
+    // Cold starts to Atlas can take longer than the 5s default.
+    serverSelectionTimeoutMS: 15_000,
+    // Serverless environments can advertise IPv6 without a working route.
+    // Atlas supports IPv4, so prefer it for reliable connectivity.
+    family: 4,
   });
 
 if (!isDeployed) {
