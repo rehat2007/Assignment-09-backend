@@ -1,6 +1,10 @@
-import express, { type Request, type Response } from "express";
+import express, {
+  type Request,
+  type RequestHandler,
+  type Response,
+} from "express";
 import cors from "cors";
-import helmet from "helmet";
+import helmetDefault from "helmet";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./auth.js";
 import { env, isDeployed, trustedOrigins } from "./config/env.js";
@@ -23,6 +27,15 @@ import { paymentsRouter } from "./routes/payments.js";
 import { stripeWebhookHandler } from "./routes/webhooks.js";
 import { technicianRouter } from "./routes/technician.js";
 import { uploadsRouter, avatarDirectory } from "./routes/uploads.js";
+
+// Vercel's TypeScript checker sometimes resolves helmet's dual ESM/CJS types
+// as a namespace instead of its default export. The runtime default is the
+// callable middleware, so keep the explicit function type here.
+const helmet = helmetDefault as unknown as (options?: {
+  crossOriginResourcePolicy?: {
+    policy?: "same-origin" | "same-site" | "cross-origin";
+  };
+}) => RequestHandler;
 
 const app = express();
 

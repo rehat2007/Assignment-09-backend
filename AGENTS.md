@@ -89,3 +89,6 @@ they differ.
 - TypeScript is pinned to 5.9.x for Vercel compatibility; TypeScript 7 breaks
   Vercel's compiler-API typecheck. Keep `typeRoots` explicit so generated
   configs outside the repo can still resolve `@types/node`.
+- Keep the explicit `helmet` function cast in `src/index.ts`: Vercel's checker
+  can resolve helmet's dual ESM/CJS types as a namespace instead of a callable
+  default export.
