@@ -1,35 +1,712 @@
-# FixMate — Test Data & Demo Guide
+# FixMate — Smart Device & Home Appliance Repair Platform
 
-This file contains the test accounts, demo services, bookings, payments, and
-suggested flows for testing the entire FixMate website.
+FixMate is a full-stack, role-based repair marketplace for smartphones, laptops,
+ACs, refrigerators, TVs, washing machines, and electrical work. Customers book
+verified technicians, track every job, and pay only after the work is completed.
+Technicians manage listings and requests, while admins moderate services, users,
+bookings, and payments.
+
+> **Status:** Core product, reviews, uploads, payments, JWT authorization,
+> hardening, and demo data are implemented. Production deployment is the
+> remaining step.
 
 ---
 
-## 1. Local URLs
+## Table of Contents
 
-| Service | URL |
+- [What is this project?](#what-is-this-project)
+- [What problem does it solve?](#what-problem-does-it-solve)
+- [What can I do with it?](#what-can-i-do-with-it)
+- [Technologies](#technologies)
+- [Architecture](#architecture)
+- [Backend organization](#backend-organization)
+- [Run it on your computer](#run-it-on-your-computer)
+- [Environment variables](#environment-variables)
+- [Communicating with the API](#communicating-with-the-api)
+- [Authentication and authorization](#authentication-and-authorization)
+- [Demo accounts and test data](#demo-accounts-and-test-data)
+- [Testing and quality checks](#testing-and-quality-checks)
+- [Live API, source code, and deployment](#live-api-source-code-and-deployment)
+
+---
+
+## What is this project?
+
+FixMate is an on-demand repair service platform with three roles:
+
+| Role | Capabilities |
 |---|---|
-| Frontend | `http://localhost:3000` |
-| Backend | `http://localhost:4000` |
-| Backend health | `http://localhost:4000/api/v1/health` |
+| **Customer** | Browse approved services, send repair requests, track status, cancel while requested, pay after completion, view payment history, leave reviews |
+| **Technician** | Add and manage services, upload cover images, accept/reject requests, start and complete jobs, set the final amount, view earnings |
+| **Admin** | Approve/reject services, manage users and roles, suspend/restore accounts, monitor every booking, view payments and revenue |
 
-Start both apps:
+The backend is an Express + TypeScript API. The frontend is a Next.js App Router
+application. MongoDB stores the marketplace data, Better Auth handles identity,
+JWT protects the API, Stripe handles payments, and ImgBB/S3 handles uploads.
+
+---
+
+## What problem does it solve?
+
+Finding a trustworthy repair technician is difficult. Customers often hand over
+a device with no visibility into the repair, no clear price, and pressure to pay
+before the work is done. Skilled technicians also lack a structured place to
+list services and manage incoming jobs.
+
+FixMate solves this by providing:
+
+- A public catalog of admin-approved services.
+- A transparent job pipeline:
+  `requested → accepted → in-progress → completed → paid`.
+- Server-enforced ownership and status rules.
+- Pay-after-service with Stripe.
+- Payment history, invoice details, technician earnings, and admin revenue.
+- Reviews and ratings after paid jobs.
+- Image uploads for service covers and profile avatars.
+- Admin moderation for listings and users.
+
+---
+
+## What can I do with it?
+
+### As a customer
+
+- Register or sign in as a customer.
+- Search, filter, and sort approved services.
+- Open a service detail page and submit a repair request.
+- Track the job timeline.
+- Cancel a request while it is still `requested`.
+- Pay a completed, unpaid job through Stripe Checkout.
+- View payment history and transaction IDs.
+- Leave one review per paid booking.
+- Update profile details and upload an avatar.
+
+### As a technician
+
+- Register or sign in as a technician.
+- Add services with a cover image; new listings start as `pending`.
+- Edit listings; editing an approved/rejected listing sends it back to `pending`.
+- Toggle availability.
+- Delete listings with confirmation.
+- Accept, reject, start, and complete assigned jobs.
+- Set the final amount when completing a job.
+- View earnings, paid jobs, and request pipeline.
+
+### As an admin
+
+- Approve or reject services.
+- Change user roles between customer, technician, and admin.
+- Suspend and restore users.
+- View all bookings with status filters.
+- View all payments and total revenue.
+- Review audit history written by admin actions.
+
+---
+
+## Technologies
+
+### Frontend
+
+- Next.js 16 App Router
+- React 19
+- TypeScript
+- Tailwind CSS v4
+- shadcn-style UI components
+- Lucide React icons
+- Sonner toast notifications
+- GSAP animations
+- Better Auth client
+
+### Backend
+
+- Node.js
+- Express 5
+- TypeScript
+- MongoDB
+- Better Auth + MongoDB adapter
+- JWT (`jsonwebtoken`)
+- Stripe Checkout + webhooks
+- ImgBB / S3-compatible storage
+- Zod validation
+- Multer uploads
+- `express-rate-limit`
+- Helmet + CORS
+
+### Infrastructure
+
+- MongoDB Atlas or local MongoDB
+- Stripe test mode
+- ImgBB or S3/R2/MinIO
+- Any Node.js host for Express (Render, Railway, Fly.io, etc.)
+- Vercel or another Next.js host for the frontend
+
+---
+
+## Architecture
+
+```text
+Browser
+  │
+  ├── Next.js frontend  ──────────────┐
+  │   App Router, SSR, cookies        │
+  │                                   │
+  └── Express API  ◄──────────────────┘
+        │
+        ├── Better Auth sessions + JWT
+        ├── Zod validation
+        ├── Role and ownership middleware
+        ├── MongoDB (users, services, bookings, payments)
+        ├── Stripe Checkout + webhook
+        └── ImgBB / S3 / local uploads
+```
+
+### Core data model
+
+| Collection | Purpose |
+|---|---|
+| `user` | Better Auth users, role, account type, profile fields |
+| `services` | Technician listings and admin approval state |
+| `bookings` | Repair requests, status history, final amount, reviews |
+| `payments` | One payment per paid booking, Stripe IDs, invoice data |
+
+Optional feature collections:
+
+| Collection | Purpose |
+|---|---|
+| `reviews` | Public review index and rating aggregation |
+| `technicianProfiles` | Technician plan, rating, jobs, specialties |
+| `auditLogs` | Admin action history |
+
+> The four core collections contain the Assignment 9 compatibility fields. The
+> optional collections support reviews, technician profiles, and auditing.
+
+---
+
+## Backend organization
+
+```text
+fix_mate_back_end/
+├── src/
+│   ├── index.ts                 # Express app, middleware order, route mounts
+│   ├── auth.ts                  # Better Auth configuration
+│   ├── roles.ts                 # App role resolution
+│   ├── config/
+│   │   └── env.ts               # Zod-validated environment variables
+│   ├── db/
+│   │   ├── mongo.ts             # MongoDB client + database
+│   │   ├── collections.ts       # Typed collection exports
+│   │   └── indexes.ts           # Unique and query indexes
+│   ├── http/
+│   │   ├── api-error.ts         # Expected API errors
+│   │   ├── response.ts          # { data, meta } and pagination helpers
+│   │   └── status.ts            # HTTP status constants
+│   ├── lib/
+│   │   ├── jwt.ts               # JWT signing and verification
+│   │   ├── logger.ts            # Structured logs
+│   │   ├── storage.ts           # local / S3 / ImgBB upload drivers
+│   │   ├── stripe.ts            # Stripe client
+│   │   └── spend-series.ts      # Aggregation helper
+│   ├── middleware/
+│   │   ├── auth.ts              # Legacy requireUser/requireRole aliases
+│   │   ├── jwt-auth.ts          # verifyToken/Customer/Technician/Admin
+│   │   ├── rate-limit.ts        # Auth, booking, upload limiters
+│   │   ├── validate.ts          # Zod body/query/params validation
+│   │   ├── errors.ts            # 404 and central error handler
+│   │   └── request-context.ts   # Request ID + access logs
+│   ├── routes/
+│   │   ├── auth-token.ts        # POST /api/v1/auth/token, /logout
+│   │   ├── catalog.ts           # Public catalog + reviews
+│   │   ├── bookings.ts          # Customer bookings + review
+│   │   ├── customer.ts          # Customer overview + payments
+│   │   ├── payments.ts          # Payment verification + detail
+│   │   ├── technician.ts        # Technician services + requests
+│   │   ├── admin.ts             # Admin users, services, bookings, payments
+│   │   ├── uploads.ts           # Avatar + service-cover uploads
+│   │   ├── webhooks.ts          # Stripe webhook
+│   │   ├── me.ts                # Current user
+│   │   └── compat.ts            # Assignment-compatible /api aliases
+│   ├── services/
+│   │   ├── admin.ts             # Admin business logic
+│   │   ├── bookings.ts          # Booking lifecycle
+│   │   ├── catalog.ts           # Public catalog + reviews
+│   │   ├── payments.ts          # Stripe verification + idempotency
+│   │   ├── reviews.ts           # Review creation + aggregation
+│   │   └── technician.ts        # Technician services + requests
+│   ├── validation/              # Zod schemas by domain
+│   └── types/
+│       └── models.ts            # MongoDB document types
+├── scripts/
+│   ├── seed.ts                  # Demo users, services, bookings, payments
+│   ├── seed-data.ts             # Seed fixture data
+│   ├── migrate-schema.ts        # Assignment compatibility migration
+│   ├── hardening-smoke.ts       # Repeatable security/flow smoke test
+│   └── create-admin.ts          # Bootstrap an admin account
+├── .env.example                 # Environment template
+└── package.json
+```
+
+### Middleware order
+
+The order matters:
+
+1. Request context / request IDs
+2. Helmet
+3. CORS
+4. Auth rate limiter
+5. Better Auth handler at `/api/auth/*splat`
+6. Stripe webhook with `express.raw()`
+7. `express.json()`
+8. API routes
+9. Static upload serving
+10. 404 handler
+11. Central error handler
+
+The Stripe webhook must receive the raw body **before** `express.json()`.
+
+---
+
+## Run it on your computer
+
+### Prerequisites
+
+- Node.js 20+ (Node 24 is used in development)
+- npm
+- MongoDB Atlas or local MongoDB
+- Stripe test keys (only for payment testing)
+- ImgBB API key (for assignment uploads) or local storage
+
+### 1. Clone the repositories
 
 ```powershell
-# Backend
-cd C:\web_dev\fix_mate\fix_mate_back_end
-npm run dev
+cd C:\web_dev\fix_mate
+git clone https://github.com/rehat2007/Assignment-09-backend.git fix_mate_back_end
+git clone https://github.com/rehat2007/Assignment-09-frontend-.git fix_mate_front_end
+```
 
-# Frontend
-cd C:\web_dev\fix_mate\fix_mate_front_end
+### 2. Configure the backend
+
+```powershell
+cd C:\web_dev\fix_mate\fix_mate_back_end
+Copy-Item .env.example .env
+# Edit .env and fill in the real values.
+npm install
+npm run seed
+npm run migrate:schema
 npm run dev
 ```
 
+Backend URLs:
+
+```text
+http://localhost:4000
+http://localhost:4000/api/v1/health
+```
+
+### 3. Configure the frontend
+
+```powershell
+cd C:\web_dev\fix_mate\fix_mate_front_end
+# Create .env.local or .env with the values below.
+npm install
+npm run dev
+```
+
+Frontend URL:
+
+```text
+http://localhost:3000
+```
+
+### 4. Sign in
+
+Use a demo account from the section below.
+
+### 5. Test payments
+
+Use Stripe test card:
+
+```text
+4242 4242 4242 4242
+Any future expiry
+Any 3-digit CVC
+```
+
+For local webhook forwarding:
+
+```powershell
+stripe listen --forward-to localhost:4000/api/v1/webhooks/stripe
+```
+
+Put the printed `whsec_...` value into `STRIPE_WEBHOOK_SECRET` and restart the
+backend.
+
+### 6. Test uploads
+
+Set:
+
+```env
+UPLOAD_DRIVER=imgbb
+IMGBB_API_KEY=your_imgbb_key
+```
+
+Then upload an avatar or service cover. Files are stored by ImgBB and only the
+public URL is saved in MongoDB.
+
 ---
 
-## 2. Restore all demo data
+## Environment variables
 
-Run this whenever the database is empty or the demo data is stale:
+### Backend `.env`
+
+```env
+# Server
+NODE_ENV=development
+PORT=4000
+
+# MongoDB
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB=fixmate
+# Optional: custom DNS resolver for mongodb+srv on problematic networks
+MONGODB_DNS_SERVERS=
+
+# Better Auth
+BETTER_AUTH_SECRET=
+BETTER_AUTH_URL=http://localhost:4000
+FRONTEND_URL=http://localhost:3000
+
+# JWT
+JWT_SECRET=
+JWT_EXPIRES_IN=7d
+
+# Demo/admin accounts
+ADMIN_EMAIL=admin@fixmate.dev
+ADMIN_NAME=FixMate Admin
+ADMIN_PASSWORD=
+SEED_PASSWORD=FixMateDemo123!
+
+# Optional Google OAuth
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Stripe test mode
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+
+# Uploads
+UPLOAD_DRIVER=imgbb
+IMGBB_API_KEY=
+
+# Optional S3/R2/MinIO
+S3_BUCKET=
+S3_REGION=
+S3_ACCESS_KEY_ID=
+S3_SECRET_ACCESS_KEY=
+S3_ENDPOINT=
+S3_PUBLIC_URL=
+S3_FORCE_PATH_STYLE=false
+```
+
+### Required vs optional
+
+| Variable | Required? | Notes |
+|---|---|---|
+| `MONGODB_URI` | Yes | Atlas or local MongoDB connection string |
+| `MONGODB_DB` | Yes | Database name, usually `fixmate` |
+| `BETTER_AUTH_SECRET` | Yes | At least 32 characters |
+| `BETTER_AUTH_URL` | Yes | Backend origin, must match cookies/OAuth |
+| `FRONTEND_URL` | Yes | Exact frontend origin for CORS/trusted origins |
+| `JWT_SECRET` | Recommended | Falls back to `BETTER_AUTH_SECRET` |
+| `JWT_EXPIRES_IN` | Optional | Defaults to `7d` |
+| `ADMIN_EMAIL` | Yes | Admin login email |
+| `ADMIN_PASSWORD` | Yes for admin | Admin password used by seed/auth tooling |
+| `SEED_PASSWORD` | Yes for demo users | Password for technician/customer demo accounts |
+| `STRIPE_SECRET_KEY` | For payments | Leave blank to run without checkout |
+| `STRIPE_WEBHOOK_SECRET` | For webhooks | Must be the `whsec_...` signing secret |
+| `UPLOAD_DRIVER` | Yes | `local`, `imgbb`, or `s3` |
+| `IMGBB_API_KEY` | If `imgbb` | Required by the assignment setup |
+| `S3_*` | If `s3` | Bucket/region/credentials/endpoint |
+| `GOOGLE_CLIENT_ID/SECRET` | Optional | Enables Google login |
+
+### Frontend `.env.local`
+
+```env
+API_URL=http://localhost:4000
+NEXT_PUBLIC_API_URL=http://localhost:4000
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+```
+
+> `.env` and `.env.local` are gitignored. Only `.env.example` belongs in Git.
+
+---
+
+## Communicating with the API
+
+### Base URLs
+
+```text
+Local:       http://localhost:4000/api/v1
+Local aliases: http://localhost:4000/api
+```
+
+### Response format
+
+Success:
+
+```json
+{
+  "data": {},
+  "meta": {}
+}
+```
+
+Error:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "One or more fields are invalid.",
+    "details": []
+  }
+}
+```
+
+### Public endpoints
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/v1/health` | Health check |
+| `GET` | `/api/v1/meta` | Categories, modes, counts |
+| `GET` | `/api/v1/services` | Search/filter/sort/paginate services |
+| `GET` | `/api/v1/services/:slug` | Service details |
+| `GET` | `/api/v1/services/:slug/reviews` | Reviews + rating distribution |
+
+### Authentication endpoints
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/auth/sign-up/email` | Better Auth customer/technician sign-up |
+| `POST` | `/api/auth/sign-in/email` | Better Auth sign-in |
+| `POST` | `/api/auth/sign-out` | Better Auth sign-out |
+| `POST` | `/api/v1/auth/token` | Issue JWT from a valid session |
+| `POST` | `/api/v1/auth/logout` | Clear the JWT cookie |
+
+### Customer endpoints
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/api/v1/bookings` | Create a repair request |
+| `GET` | `/api/v1/bookings` | List own bookings |
+| `GET` | `/api/v1/bookings/:id` | Booking detail |
+| `POST` | `/api/v1/bookings/:id/cancel` | Cancel a requested booking |
+| `POST` | `/api/v1/bookings/:id/review` | Review a paid completed booking |
+| `POST` | `/api/v1/bookings/:id/checkout` | Start Stripe Checkout |
+| `GET` | `/api/v1/customer/overview` | Customer stats and recent activity |
+| `GET` | `/api/v1/customer/payments` | Payment history |
+| `GET` | `/api/v1/payments/:id` | Payment detail |
+| `GET` | `/api/v1/payments/verify?session_id=...` | Verify Stripe Checkout return |
+
+### Technician endpoints
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/v1/technician/overview` | Stats, earnings, pipeline |
+| `GET` | `/api/v1/technician/services` | Own listings |
+| `POST` | `/api/v1/technician/services` | Create a listing |
+| `GET` | `/api/v1/technician/services/:id` | Own listing detail |
+| `PATCH` | `/api/v1/technician/services/:id` | Edit listing |
+| `PATCH` | `/api/v1/technician/services/:id/availability` | Pause/unpause |
+| `DELETE` | `/api/v1/technician/services/:id` | Soft-delete listing |
+| `GET` | `/api/v1/technician/requests` | Assigned jobs |
+| `GET` | `/api/v1/technician/requests/:id` | Job detail |
+| `POST` | `/api/v1/technician/requests/:id/accept` | Accept job |
+| `POST` | `/api/v1/technician/requests/:id/reject` | Reject job |
+| `POST` | `/api/v1/technician/requests/:id/start` | Start work |
+| `POST` | `/api/v1/technician/requests/:id/complete` | Complete + final amount |
+
+### Admin endpoints
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/v1/admin/overview` | Platform stats |
+| `GET` | `/api/v1/admin/users` | List users |
+| `GET` | `/api/v1/admin/users/:id` | User detail |
+| `PATCH` | `/api/v1/admin/users/:id/role` | Change role |
+| `POST` | `/api/v1/admin/users/:id/suspend` | Suspend user |
+| `POST` | `/api/v1/admin/users/:id/restore` | Restore user |
+| `GET` | `/api/v1/admin/services` | All services |
+| `GET` | `/api/v1/admin/services/:id` | Service detail |
+| `POST` | `/api/v1/admin/services/:id/approve` | Approve service |
+| `POST` | `/api/v1/admin/services/:id/reject` | Reject service |
+| `GET` | `/api/v1/admin/bookings` | All bookings |
+| `GET` | `/api/v1/admin/bookings/:id` | Booking detail |
+| `GET` | `/api/v1/admin/payments` | All payments |
+| `GET` | `/api/v1/admin/payments/:id` | Payment detail |
+
+### Upload endpoints
+
+| Method | Endpoint | Role | Limit |
+|---|---|---|---|
+| `POST` | `/api/v1/uploads/avatar` | Any signed-in user | 2 MB |
+| `POST` | `/api/v1/uploads/service-cover` | Technician | 5 MB |
+
+Allowed types: JPG, PNG, WebP. MIME is detected from bytes, and only the public
+URL is stored.
+
+### Webhook endpoint
+
+```text
+POST /api/v1/webhooks/stripe
+```
+
+Configure in Stripe Dashboard or forward locally with:
+
+```powershell
+stripe listen --forward-to localhost:4000/api/v1/webhooks/stripe
+```
+
+### Assignment-compatible API aliases
+
+The exact documented paths are also mounted at `/api`:
+
+```text
+POST   /api/bookings
+PATCH  /api/bookings/:id/cancel
+GET    /api/bookings/my
+POST   /api/payments/create-checkout-session
+POST   /api/services
+PATCH  /api/services/:id
+DELETE /api/services/:id
+GET    /api/bookings/technician
+PATCH  /api/bookings/:id/status
+GET    /api/admin/users
+PATCH  /api/admin/users/:id/role
+PATCH  /api/admin/services/:id/approval
+GET    /api/admin/bookings
+GET    /api/admin/payments
+PATCH  /api/users/profile
+GET    /api/services
+GET    /api/services/:id
+```
+
+### Example: fetch public services
+
+```powershell
+curl.exe "http://localhost:4000/api/v1/services?category=AC&sort=price-asc"
+```
+
+### Example: sign in and get a JWT
+
+```powershell
+curl.exe -c cookies.txt -X POST "http://localhost:4000/api/auth/sign-in/email" `
+  -H "Content-Type: application/json" `
+  -d "{\"email\":\"customer@fixmate.dev\",\"password\":\"FixMateDemo123!\"}"
+
+curl.exe -b cookies.txt -c cookies.txt -X POST "http://localhost:4000/api/v1/auth/token"
+```
+
+Use the returned token:
+
+```powershell
+curl.exe -H "Authorization: Bearer <token>" "http://localhost:4000/api/v1/bookings"
+```
+
+The token is also stored in the httpOnly `fixmate_token` cookie, so browser
+requests using `credentials: "include"` work without manually attaching a
+Bearer header.
+
+---
+
+## Authentication and authorization
+
+### Identity
+
+Better Auth manages users, sessions, password hashing, Google login, and the
+admin plugin role.
+
+### Browser sessions
+
+- Sign-up/sign-in create Better Auth session cookies.
+- Next.js server components read the session through `/api/auth/get-session`.
+- Protected pages redirect signed-out users to `/sign-in`.
+
+### JWT API access
+
+- `POST /api/v1/auth/token` signs a JWT from a valid Better Auth session.
+- The JWT is set as an httpOnly `fixmate_token` cookie and returned to API
+  clients.
+- Requests may use either:
+  - `Authorization: Bearer <token>`, or
+  - the `fixmate_token` cookie.
+- Invalid or expired JWTs return `401`.
+- A Better Auth session fallback keeps server-rendered pages working while the
+  browser acquires its JWT cookie. A request with an invalid JWT never falls
+  back.
+
+### Roles
+
+Roles are resolved from:
+
+1. Better Auth admin plugin `role` (admin), then
+2. `accountType` (`technician` or `customer`).
+
+Public sign-up can only choose customer or technician. Admin accounts are
+created through seed/admin tooling.
+
+### Middleware
+
+| Middleware | Behavior |
+|---|---|
+| `verifyToken` | Valid JWT or valid Better Auth session required |
+| `verifyCustomer` | Customer role required |
+| `verifyTechnician` | Technician role required |
+| `verifyAdmin` | Admin role required |
+
+### Ownership rules
+
+- Customers can read/cancel only their own bookings.
+- Technicians can update only jobs assigned to them.
+- Technicians can edit/delete only their own services.
+- Payments are visible only to the owning customer or an admin.
+- Reviews require the owning customer, `completed` + `paid`, and one review per
+  booking.
+- Admin routes require the admin role.
+
+### Status rules
+
+The server enforces:
+
+```text
+requested → accepted | rejected | cancelled
+accepted  → in-progress
+in-progress → completed (with finalAmount > 0)
+completed + unpaid → paid (Stripe only)
+```
+
+Invalid transitions return `409`.
+
+### Payment security
+
+- The server loads `finalAmount` from the booking; it never trusts a client amount.
+- Stripe Checkout Session is created server-side.
+- The webhook verifies the Stripe signature using the raw request body.
+- Payments are inserted idempotently with a unique `bookingId` index.
+- Success-page verification and webhook use the same idempotent recorder.
+
+### Rate limiting
+
+- Auth: 40 requests / 15 minutes per IP
+- Booking creation: 12 requests / minute per IP
+- Uploads: 20 requests / minute per IP
+
+Rate-limited responses use the standard `429 RATE_LIMITED` envelope.
+
+---
+
+## Demo accounts and test data
+
+Run the seed to create the complete demo dataset:
 
 ```powershell
 cd C:\web_dev\fix_mate\fix_mate_back_end
@@ -37,318 +714,147 @@ npm run seed
 npm run migrate:schema
 ```
 
-`npm run seed` creates or updates:
+### Accounts
 
-- 12 demo users
-- Better Auth credential accounts for password login
-- 3 technician profiles
-- 15 approved services
-- 8 public reviews
-- 8 demo bookings in every status
-- 2 paid demo payments
-
-The seed is idempotent and does not delete unrelated user accounts.
-
-> Re-running the seed resets demo service cover images to `null` and resets the
-> demo bookings/payments. Do not re-run it after uploading real demo covers
-> unless you are happy to reset them.
-
----
-
-## 3. Demo accounts
-
-### Password rules
-
-- Technician and customer password: `SEED_PASSWORD` from the backend `.env`.
-- Default value: `FixMateDemo123!`
-- Admin password: `ADMIN_PASSWORD` from the backend `.env`.
-
-If you changed `SEED_PASSWORD` or `ADMIN_PASSWORD`, use your current values.
-
-### Admin
-
-| Role | Name | Email | Password |
-|---|---|---|---|
-| Admin | FixMate Admin | `admin@fixmate.dev` | `ADMIN_PASSWORD` from `.env` |
-
-### Technicians
-
-| Name | Email | Password | Specialty |
-|---|---|---|---|
-| Rakib Hasan | `rakib@fixmate.dev` | `SEED_PASSWORD` | AC, refrigerators, washing machines |
-| Sadia Islam | `sadia@fixmate.dev` | `SEED_PASSWORD` | Phones, laptops, MacBook, TV |
-| Nayeem Chowdhury | `nayeem@fixmate.dev` | `SEED_PASSWORD` | PC upgrades, electrical, CCTV |
-
-### Customers
-
-| Name | Email | Password |
+| Role | Email | Password |
 |---|---|---|
-| Ayesha Rahman | `customer@fixmate.dev` | `SEED_PASSWORD` |
-| Tanvir Ahmed | `tanvir@mail.com` | `SEED_PASSWORD` |
-| Mehedi Hasan | `mehedi@mail.com` | `SEED_PASSWORD` |
-| Nusrat Jahan | `nusrat@mail.com` | `SEED_PASSWORD` |
-| Farhan Kabir | `farhan@mail.com` | `SEED_PASSWORD` |
-| Sumaiya Akter | `sumaiya@mail.com` | `SEED_PASSWORD` |
-| Imran Sheikh | `imran@mail.com` | `SEED_PASSWORD` |
-| Rifat Chowdhury | `rifat@mail.com` | `SEED_PASSWORD` |
+| Admin | `admin@fixmate.dev` | `ADMIN_PASSWORD` from `.env` |
+| Technician | `rakib@fixmate.dev` | `SEED_PASSWORD` (`FixMateDemo123!` by default) |
+| Technician | `sadia@fixmate.dev` | `SEED_PASSWORD` |
+| Technician | `nayeem@fixmate.dev` | `SEED_PASSWORD` |
+| Customer | `customer@fixmate.dev` | `SEED_PASSWORD` |
+| Customer | `tanvir@mail.com` | `SEED_PASSWORD` |
 
-### Quick login summary
+Additional seeded customers: `mehedi@mail.com`, `nusrat@mail.com`,
+`farhan@mail.com`, `sumaiya@mail.com`, `imran@mail.com`, `rifat@mail.com`.
 
-```text
-Admin:     admin@fixmate.dev        / ADMIN_PASSWORD from .env
-Technician: rakib@fixmate.dev       / FixMateDemo123!
-Technician: sadia@fixmate.dev       / FixMateDemo123!
-Technician: nayeem@fixmate.dev      / FixMateDemo123!
-Customer:  customer@fixmate.dev     / FixMateDemo123!
-Customer:  tanvir@mail.com          / FixMateDemo123!
-```
-
-If a demo password stops working, re-run:
-
-```powershell
-cd C:\web_dev\fix_mate\fix_mate_back_end
-npm run seed
-```
-
-The seed repairs missing Better Auth credential accounts for demo users.
-
----
-
-## 4. Demo services
-
-There are 15 approved, available services.
-
-| Category | Services |
-|---|---|
-| Smartphone | iPhone 13 Screen Replacement, Android Battery Replacement |
-| Laptop & PC | MacBook Battery & Service, Laptop Overheating & Fan Cleaning, Gaming PC RAM & SSD Upgrade |
-| AC | Split AC Deep Cleaning, AC Gas Refill & Leak Test |
-| Refrigerator | Refrigerator Cooling Repair, Refrigerator Door Seal Replacement |
-| TV | Smart TV Backlight & Panel Repair |
-| Washing Machine | Washing Machine Drum Cleaning, Washing Machine Motor Repair |
-| Electrical | Home Electrical Wiring Inspection, Ceiling Fan Installation, CCTV Camera Setup |
-
-Each service is public at:
-
-```text
-/services
-```
-
----
-
-## 5. Demo bookings
-
-| Booking | Internal ID | Customer | Technician | Service | Status | Payment |
-|---|---|---|---|---|---|---|
-| `FM-DEMO-1001` | `demo-booking:requested-ac` | Ayesha | Rakib | Split AC Deep Cleaning | `requested` | Unpaid |
-| `FM-DEMO-1002` | `demo-booking:accepted-macbook` | Tanvir | Sadia | MacBook Battery & Service | `accepted` | Unpaid |
-| `FM-DEMO-1003` | `demo-booking:in-progress-tv` | Ayesha | Sadia | Smart TV Backlight & Panel Repair | `in-progress` | Unpaid |
-| `FM-DEMO-1004` | `demo-booking:completed-unpaid-iphone` | Ayesha | Sadia | iPhone 13 Screen Replacement | `completed` | Unpaid · $55 |
-| `FM-DEMO-1005` | `demo-booking:completed-paid-ac` | Ayesha | Rakib | AC Gas Refill & Leak Test | `completed` | Paid · $70 |
-| `FM-DEMO-1006` | `demo-booking:completed-paid-cctv` | Farhan | Nayeem | CCTV Camera Setup | `completed` | Paid · $80 |
-| `FM-DEMO-1007` | `demo-booking:cancelled-washer` | Mehedi | Rakib | Washing Machine Drum Cleaning | `cancelled` | Unpaid |
-| `FM-DEMO-1008` | `demo-booking:rejected-fridge` | Nusrat | Rakib | Refrigerator Cooling Repair | `rejected` | Unpaid |
-
-### Booking status coverage
-
-```text
-requested:   1
-accepted:    1
-in-progress: 1
-completed:   3 (1 unpaid + 2 paid)
-cancelled:   1
-rejected:    1
-```
-
----
-
-## 6. Demo payments
-
-| Invoice | Booking | Customer | Technician | Service | Amount | Transaction ID |
-|---|---|---|---|---|---|---|
-| `INV-FM-DEMO-1005` | `FM-DEMO-1005` | Ayesha Rahman | Rakib Hasan | AC Gas Refill & Leak Test | $70 | `seed_pi_ac_2026` |
-| `INV-FM-DEMO-1006` | `FM-DEMO-1006` | Farhan Kabir | Nayeem Chowdhury | CCTV Camera Setup | $80 | `seed_pi_cctv_2026` |
-
-These are **synthetic seed payments**, not real Stripe charges. They do not
-appear in the Stripe Dashboard. They populate:
-
-- Customer payment history
-- Customer total spent
-- Technician earnings
-- Admin revenue and transactions
-
-Total demo revenue: **$150**.
-
----
-
-## 7. What to test
-
-### 7.1 Customer flow
-
-Sign in as:
-
-```text
-customer@fixmate.dev
-FixMateDemo123!
-```
-
-Test:
-
-1. Open **My Bookings**.
-2. `FM-DEMO-1001` is `requested` → click **Cancel** and confirm.
-3. `FM-DEMO-1003` is `in-progress` → check the timeline.
-4. `FM-DEMO-1004` is completed and unpaid → click **Pay now**.
-   - Use Stripe test card: `4242 4242 4242 4242`
-   - Any future expiry date
-   - Any 3-digit CVC
-5. `FM-DEMO-1005` is paid and unreviewed → click **Leave a review**.
-6. Open **Payment History** and confirm the seeded transactions.
-7. Open **Profile** and upload an avatar.
-8. Open `/services` and browse/search/filter/sort.
-9. Open a service details page and send a new repair request.
-
-Expected:
-
-- Real Stripe payment creates one new payment.
-- Booking `FM-DEMO-1004` becomes paid.
-- `FM-DEMO-1005` can be reviewed once.
-- The review updates the service rating.
-- Avatar upload uses ImgBB and returns an `i.ibb.co` URL.
-
-### 7.2 Technician flow
-
-Sign in as:
-
-```text
-rakib@fixmate.dev
-FixMateDemo123!
-```
-
-Test:
-
-1. Open **Requests**.
-2. `FM-DEMO-1001` is requested → accept or reject.
-3. `FM-DEMO-1005` is completed and paid → check the payment badge.
-4. `FM-DEMO-1007` shows cancelled history.
-5. `FM-DEMO-1008` shows rejected history.
-6. Open **My Services**:
-   - Edit a service → approval returns to `pending`.
-   - Toggle availability.
-   - Delete a service → confirmation modal appears.
-7. Add a service with an ImgBB cover.
-8. Open the overview and confirm earnings include $70.
-
-Then sign in as:
-
-```text
-sadia@fixmate.dev
-FixMateDemo123!
-```
-
-- `FM-DEMO-1002` is accepted → start work.
-- `FM-DEMO-1003` is in-progress → complete it and set a final amount.
-- `FM-DEMO-1004` is completed/unpaid → confirm it stays unpaid until the
-  customer pays.
-
-Then sign in as:
-
-```text
-nayeem@fixmate.dev
-FixMateDemo123!
-```
-
-- `FM-DEMO-1006` is completed/paid → confirm $80 earnings.
-
-### 7.3 Admin flow
-
-Sign in as:
-
-```text
-admin@fixmate.dev
-ADMIN_PASSWORD from .env
-```
-
-Test:
-
-1. Open **Users**:
-   - Change a customer to technician and back.
-   - Suspend and restore a user.
-   - Confirm self-role change is blocked.
-2. Open **Services**:
-   - Approve or reject a pending service.
-   - Reject an approved service.
-   - Re-approve a rejected service.
-3. Open **Bookings**:
-   - Filter by status.
-   - Confirm all 8 demo bookings appear.
-4. Open **Transactions**:
-   - Confirm both demo payments appear.
-   - Confirm total revenue is $150 from seed payments.
-5. Open the admin overview:
-   - Confirm users, technicians, pending services, bookings, and revenue.
-
----
-
-## 8. ImgBB test notes
-
-Current upload configuration:
-
-```env
-UPLOAD_DRIVER=imgbb
-IMGBB_API_KEY=<your real key>
-```
-
-Upload limits:
-
-- Avatar: JPG/PNG/WebP, max 2 MB
-- Service cover: JPG/PNG/WebP, max 5 MB
-
-Test real images. Extremely small 1×1 images may be rejected by ImgBB with error
-code `103`.
-
----
-
-## 9. Useful commands
-
-```powershell
-cd C:\web_dev\fix_mate\fix_mate_back_end
-
-npm run dev             # start API
-npm run typecheck       # TypeScript check
-npm run build           # compile backend
-npm run seed            # restore demo data
-npm run migrate:schema  # backfill compatibility fields
-npm run test:smoke      # 401/403, IDOR, transitions, payments, roles
-```
-
-```powershell
-cd C:\web_dev\fix_mate\fix_mate_front_end
-
-npm run dev             # start frontend
-npm run lint            # ESLint
-npm run build           # production build
-npx tsc --noEmit        # TypeScript check
-```
-
----
-
-## 10. Current expected database state
-
-After `npm run seed`:
+### Seeded data
 
 ```text
 users:              12
 credential accounts: 12
 technician profiles: 3
-services:           15
-bookings:            8
-payments:            2
+services:           15 approved
+bookings:            8 across every status
+payments:            2 synthetic paid transactions
 reviews:             8
 ```
 
-If your counts differ, re-run:
+Demo bookings:
+
+| Booking | Customer | Technician | Status | Payment |
+|---|---|---|---|---|
+| `FM-DEMO-1001` | Ayesha | Rakib | Requested | Unpaid |
+| `FM-DEMO-1002` | Tanvir | Sadia | Accepted | Unpaid |
+| `FM-DEMO-1003` | Ayesha | Sadia | In Progress | Unpaid |
+| `FM-DEMO-1004` | Ayesha | Sadia | Completed | Unpaid · $55 |
+| `FM-DEMO-1005` | Ayesha | Rakib | Completed | Paid · $70 |
+| `FM-DEMO-1006` | Farhan | Nayeem | Completed | Paid · $80 |
+| `FM-DEMO-1007` | Mehedi | Rakib | Cancelled | Unpaid |
+| `FM-DEMO-1008` | Nusrat | Rakib | Rejected | Unpaid |
+
+The two seeded payments are synthetic and do not appear in Stripe. Use
+`FM-DEMO-1004` for a real Stripe test with:
+
+```text
+4242 4242 4242 4242
+Any future expiry
+Any 3-digit CVC
+```
+
+If demo login stops working, re-run `npm run seed`; it repairs missing Better
+Auth credential accounts.
+
+---
+
+## Testing and quality checks
+
+### Backend
 
 ```powershell
+cd C:\web_dev\fix_mate\fix_mate_back_end
+npm run typecheck
+npm run build
 npm run seed
 npm run migrate:schema
+npm run test:smoke
 ```
+
+`npm run test:smoke` checks:
+
+- `401` and `403`
+- IDOR / ownership
+- Booking state transitions
+- Payment idempotency
+- Role changes
+- Approval reset on edit
+
+### Frontend
+
+```powershell
+cd C:\web_dev\fix_mate\fix_mate_front_end
+npx tsc --noEmit
+npm run lint
+npm run build
+```
+
+---
+
+## Live API, source code, and deployment
+
+### Source code
+
+| Repository | URL |
+|---|---|
+| Backend | https://github.com/rehat2007/Assignment-09-backend |
+| Frontend | https://github.com/rehat2007/Assignment-09-frontend- |
+
+### Live API
+
+The API is currently running locally:
+
+```text
+http://localhost:4000/api/v1/health
+```
+
+A stable production API has **not been deployed yet**. After deployment, the
+production URL will be added here:
+
+```text
+https://api.your-domain.com/api/v1/health
+```
+
+### Deployment checklist
+
+1. Create a MongoDB Atlas cluster and set `MONGODB_URI`.
+2. Deploy the Express API to Render/Railway/Fly.io.
+3. Set backend environment variables on the host.
+4. Set `BETTER_AUTH_URL` and `FRONTEND_URL` to the production origins.
+5. Deploy the Next.js frontend to Vercel.
+6. Set `API_URL` and `NEXT_PUBLIC_API_URL` on the frontend host.
+7. Add the production frontend origin to CORS and Better Auth trusted origins.
+8. Add the production Stripe webhook:
+   `https://api.your-domain.com/api/v1/webhooks/stripe`
+9. Set `UPLOAD_DRIVER=imgbb` and `IMGBB_API_KEY` on the backend host.
+10. Run on the production database:
+    ```powershell
+    npm run seed
+    npm run migrate:schema
+    ```
+11. Test signup, login, booking, payment, review, upload, and reload behavior.
+
+### Known limitations
+
+- Production deployment is pending.
+- The four core collections contain the Assignment 9 compatibility fields; the
+  optional `reviews`, `technicianProfiles`, and `auditLogs` collections remain as
+  feature extensions.
+- ImgBB requires a real image; tiny 1×1 test images may be rejected.
+- Seed payments are synthetic and are not Stripe charges.
+
+---
+
+## License
+
+This project was built for Assignment 9. Add a license here if you plan to
+publish it publicly.
