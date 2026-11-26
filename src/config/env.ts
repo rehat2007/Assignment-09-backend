@@ -33,6 +33,19 @@ const schema = z.object({
   JWT_EXPIRES_IN: z.string().min(1).default("7d"),
   BETTER_AUTH_URL: origin.default("http://localhost:4000"),
   FRONTEND_URL: origin.default("http://localhost:3000"),
+  // Public origin that serves /api/auth/*. Deployments point this at the Next
+  // frontend so the rewrite proxies OAuth callbacks and keeps the session
+  // cookie on the frontend host. Defaults to FRONTEND_URL when deployed and
+  // BETTER_AUTH_URL locally.
+  AUTH_PUBLIC_URL: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() === "" ? undefined : value,
+    z
+      .string()
+      .url()
+      .transform((value) => value.replace(/\/+$/, ""))
+      .optional(),
+  ),
   GOOGLE_CLIENT_ID: optionalString,
   GOOGLE_CLIENT_SECRET: optionalString,
   ADMIN_EMAIL: z.string().min(1).default("admin@fixmate.dev"),
@@ -106,6 +119,12 @@ export const env = parsed.data;
 export const isDeployed =
   env.NODE_ENV === "production" || process.env.VERCEL === "1";
 
+// Better Auth's public origin. In deployments this is the frontend origin,
+// which rewrites /api/auth/* to this API, so Google redirects to the frontend
+// callback and the session cookie stays on the frontend host.
+export const authPublicUrl =
+  env.AUTH_PUBLIC_URL ?? (isDeployed ? env.FRONTEND_URL : env.BETTER_AUTH_URL);
+
 // The frontend origin plus the backend origin. Extra localhost origins are
 // trusted only outside deployed environments so a dev server on another port
 // still works.
@@ -113,6 +132,7 @@ export const trustedOrigins = Array.from(
   new Set([
     env.FRONTEND_URL,
     env.BETTER_AUTH_URL,
+    authPublicUrl,
     ...(isDeployed ? [] : ["http://localhost:3000", "http://127.0.0.1:3000"]),
   ]),
 );

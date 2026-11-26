@@ -1,7 +1,12 @@
 import { betterAuth } from "better-auth";
 import { admin } from "better-auth/plugins";
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
-import { env, isDeployed, trustedOrigins } from "./config/env.js";
+import {
+  authPublicUrl,
+  env,
+  isDeployed,
+  trustedOrigins,
+} from "./config/env.js";
 import { mongoDb } from "./db/mongo.js";
 
 const googleProvider =
@@ -16,7 +21,10 @@ const googleProvider =
 
 export const auth = betterAuth({
   appName: "FixMate",
-  baseURL: env.BETTER_AUTH_URL,
+  // Keep the public auth origin separate from BETTER_AUTH_URL so deployments
+  // can point OAuth callbacks at the frontend proxy without changing API or
+  // upload URLs.
+  baseURL: authPublicUrl,
   trustedOrigins,
   // No `client` option: works with standalone MongoDB and Atlas alike.
   database: mongodbAdapter(mongoDb),

@@ -380,6 +380,8 @@ MONGODB_DNS_SERVERS=
 BETTER_AUTH_SECRET=
 BETTER_AUTH_URL=http://localhost:4000
 FRONTEND_URL=http://localhost:3000
+# Public auth/OAuth origin; blank = FRONTEND_URL when deployed, BETTER_AUTH_URL locally
+AUTH_PUBLIC_URL=
 
 # JWT
 JWT_SECRET=
@@ -420,8 +422,9 @@ S3_FORCE_PATH_STYLE=false
 | `MONGODB_URI` | Yes | Atlas or local MongoDB connection string |
 | `MONGODB_DB` | Yes | Database name, usually `fixmate` |
 | `BETTER_AUTH_SECRET` | Yes | At least 32 characters |
-| `BETTER_AUTH_URL` | Yes | Backend origin, must match cookies/OAuth |
+| `BETTER_AUTH_URL` | Yes | Backend origin for API/upload URLs and CORS |
 | `FRONTEND_URL` | Yes | Exact frontend origin for CORS/trusted origins |
+| `AUTH_PUBLIC_URL` | Optional | Public origin for Better Auth/OAuth callbacks. Blank = `FRONTEND_URL` when deployed, `BETTER_AUTH_URL` locally. Set it to the frontend origin in deployments so the Next rewrite proxies the Google callback. |
 | `JWT_SECRET` | Recommended | Falls back to `BETTER_AUTH_SECRET` |
 | `JWT_EXPIRES_IN` | Optional | Defaults to `7d` |
 | `ADMIN_EMAIL` | Yes | Admin login email |
@@ -839,7 +842,10 @@ https://api.your-domain.com/api/v1/health
 1. Create a MongoDB Atlas cluster and set `MONGODB_URI`.
 2. Deploy the Express API to Render/Railway/Fly.io.
 3. Set backend environment variables on the host.
-4. Set `BETTER_AUTH_URL` and `FRONTEND_URL` to the production origins.
+4. Set `BETTER_AUTH_URL` and `FRONTEND_URL` to the production origins, and set
+   `AUTH_PUBLIC_URL` to the frontend origin so OAuth callbacks go through the
+   Next rewrite. Register `<frontend>/api/auth/callback/google` in Google
+   Console when Google login is enabled.
 5. Deploy the Next.js frontend to Vercel.
 6. Set `API_URL` and `NEXT_PUBLIC_API_URL` on the frontend host.
 7. Add the production frontend origin to CORS and Better Auth trusted origins.

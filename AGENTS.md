@@ -30,8 +30,13 @@ they differ.
   `data/uploads` and are served at `/api/v1/uploads/files/...`. `imgbb`/`s3`
   need their extra variables. The README's ImgBB setup is optional, not the
   default.
-- `BETTER_AUTH_URL` is the backend origin (cookies, JWT, local upload URLs);
+- `BETTER_AUTH_URL` is the backend origin (API/upload URLs and CORS);
   `FRONTEND_URL` is the allowed frontend origin for CORS/trusted origins.
+- `AUTH_PUBLIC_URL` is Better Auth's public `baseURL` (OAuth callbacks). Leave it
+  blank to use `FRONTEND_URL` when deployed and `BETTER_AUTH_URL` locally. In
+  deployments set it to the frontend origin so Google redirects to
+  `<frontend>/api/auth/callback/google`, the Next rewrite proxies the callback,
+  and the session cookie lands on the frontend host.
 - Vercel does not reliably set `NODE_ENV` for Express apps. Use `isDeployed`
   from `src/config/env.ts` (`NODE_ENV=production` or `VERCEL=1`) for production
   behavior; do not add `NODE_ENV=production` on Vercel because npm then skips
@@ -46,6 +51,9 @@ they differ.
 
 - `src/index.ts` defines middleware order. Better Auth (`/api/auth/*splat`) and
   the Stripe webhook (raw body) must be mounted **before** `express.json()`.
+- Better Auth's `baseURL` is `authPublicUrl`, deliberately separate from
+  `BETTER_AUTH_URL`; don't collapse them or deployments lose the frontend OAuth
+  callback/proxy while upload URLs still need the backend origin.
 - Routes stay thin; business rules live in `src/services/`, Zod schemas in
   `src/validation/`, and Mongo access through `src/db/collections.ts`.
 - Validate with `validateBody`/`validateQuery`/`validateParams`, then read with
