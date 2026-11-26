@@ -23,6 +23,7 @@ import { compatRouter } from "./routes/compat.js";
 import { bookingsRouter } from "./routes/bookings.js";
 import { customerRouter } from "./routes/customer.js";
 import { meRouter } from "./routes/me.js";
+import { notificationsRouter } from "./routes/notifications.js";
 import { paymentsRouter } from "./routes/payments.js";
 import { stripeWebhookHandler } from "./routes/webhooks.js";
 import { technicianRouter } from "./routes/technician.js";
@@ -113,6 +114,7 @@ app.get("/api/v1/health", async (request: Request, response: Response) => {
 
 app.use("/api/v1/auth", authTokenRouter);
 app.use("/api/v1/me", meRouter);
+app.use("/api/v1/notifications", notificationsRouter);
 app.use("/api/v1", catalogRouter);
 app.use("/api/v1/bookings", bookingsRouter);
 app.use("/api/v1/customer", customerRouter);
